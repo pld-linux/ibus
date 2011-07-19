@@ -1,0 +1,23 @@
+--- ibus/ui/gtk/main.py.orig	2011-04-25 12:33:39.296999692 +0900
++++ ibus/ui/gtk/main.py	2011-06-08 11:53:44.027232075 +0900
+@@ -86,6 +86,9 @@ class UIApplication:
+             pass
+ 
+ def launch_panel(replace):
++    settings = gtk.settings_get_default()
++    if settings.get_property('gtk-fallback-icon-theme') == None:
++        settings.set_property('gtk-fallback-icon-theme', 'gnome')
+     # gtk.settings_get_default().props.gtk_theme_name = "/home/phuang/.themes/aud-Default/gtk-2.0/gtkrc"
+     # gtk.rc_parse("./themes/default/gtkrc")
+     UIApplication(replace).run()
+--- ibus/ui/gtk/panel.py.orig	2011-06-08 12:16:40.107577438 +0900
++++ ibus/ui/gtk/panel.py	2011-06-08 12:17:00.440460268 +0900
+@@ -507,7 +507,7 @@ class Panel(ibus.PanelBase):
+             menu = gtk.Menu()
+             item = gtk.ImageMenuItem(_("No input window"))
+             size = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)
+-            item.set_image(_icon.IconWidget("gtk-info", size[0]))
++            item.set_image(_icon.IconWidget("gtk-dialog-info", size[0]))
+             menu.add(item)
+             menu.show_all()
+         else:

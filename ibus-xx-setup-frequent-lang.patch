@@ -1,0 +1,436 @@
+From 735a4d98ac057ded317dae9b85777ce56d8af0fd Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Mon, 20 Jun 2011 19:04:51 +0900
+Subject: [PATCH] Enable ibus-setup to show the frequently used languages
+ only in IME list.
+
+---
+ data/ibus.schemas.in    |  168 +++++++++++++++++++++++++++++++++++++++++++++++
+ setup/enginecombobox.py |  153 ++++++++++++++++++++++++++++++++++++------
+ setup/main.py           |    1 +
+ 3 files changed, 300 insertions(+), 22 deletions(-)
+
+diff --git a/data/ibus.schemas.in.in b/data/ibus.schemas.in.in
+index d4334e1..5ef2ac2 100644
+--- a/data/ibus.schemas.in.in
++++ b/data/ibus.schemas.in.in
+@@ -239,6 +239,174 @@
+       </locale>
+     </schema>
+     <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/group_list</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/group_list</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <default>[west_europe,south_europe,east_europe,north_europe,west_asia,center_asia,east_asia,india,australia]</default>
++      <locale name="C">
++        <short>List of system keyboard layout groups on ibus-setup</short>
++	    <long>The group list is used not to show all the system
++                  keyboard layouts by default. The list item will be
++                  appended at the end of gconf key. e.g.
++                  .../xkblayoutconfig/system/item1</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/west_europe</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/west_europe</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[ad,be,br,de,ca,ch,cz,es,fr,gn,hu,ie,ie(CloGaelach),it,latam,nl,pt,si,sk]</default>
++      -->
++      <default>[ca,cs,de,en,es,fr,gd,hu,it,nl,pt,sk,sl]</default>
++      <locale name="C">
++        <short>List of European languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/south_europe</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/south_europe</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[al,ba,bg,gr,me,mk,mt,ro,rs]</default>
++      -->
++      <default>[bg,bs,el,mk,mt,ro,sq,sr]</default>
++      <locale name="C">
++        <short>List of European languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/east_europe</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/east_europe</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[by,ee,epo,ge,ge(dsb),ge(ru),ge(os),hr,kg,kz,lt,lv,pl,pl(csb),ru,ru(cv),ru(kom),ru(sah),ru(tt),ru(xal),ua,uz]</default>
++      -->
++      <default>[be,csb,cv,et,ka,kk,ky,lt,lv,pl,ru,tt,uk,uz]</default>
++      <locale name="C">
++        <short>List of European languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/north_europe</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/north_europe</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[dk,fi,fo,is,no,no(smi),se]</default>
++      -->
++      <default>[da,fi,fo,is,no,se,sv]</default>
++      <locale name="C">
++        <short>List of European languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/west_asia</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/west_asia</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[am,ara,az,et,gh,gh(akan),gh(ewe),gh(fula),gh(ga),gh(hausa),il,iq,iq(ku),ir,ir(ku),ma,ma(tifinagh),ng,ng(hausa),ng,ng(igbo),ng(yoruba),sy,sy(ku),tj,tr]</default>
++      -->
++      <default>[am,ar,az,ber,fa,ha,he,hy,ig,ku,tg,tr,yo]</default>
++      <locale name="C">
++        <short>List of Asian languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/center_asia</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/center_asia</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[cn(tib)]</default>
++      -->
++      <default>[bo,zh]</default>
++      <locale name="C">
++        <short>List of Asian languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/east_asia</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/east_asia</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[bt,kh,la,mal,mm,th,vn]</default>
++      -->
++      <default>[dz,km,lo,my,th,vi]</default>
++      <locale name="C">
++        <short>List of Asian languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/india</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/india</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[bd,in,in(ben),in(guj),in(guru),in(jhelum),in(kan),in(mal),in(ori),in(tam),in(tel),in(urd-phonetic),in(bolnagri),lk,lk(tam_unicode),mv,np,pk]</default>
++      -->
++      <default>[bn,dv,gu,hi,kn,ml,ne,or,pa,si,ta,te,ur]</default>
++      <locale name="C">
++        <short>List of Asian languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
++      <key>/schemas/desktop/ibus/general/xkblayoutconfig/system/australia</key>
++      <applyto>/desktop/ibus/general/xkblayoutconfig/system/australia</applyto>
++      <owner>ibus</owner>
++      <type>list</type>
++      <list_type>string</list_type>
++      <!--
++      <default>[mao]</default>
++      -->
++      <default>[mi]</default>
++      <locale name="C">
++        <short>List of Asian languages on ibus-setup</short>
++	    <long>ibus-setup shows the languages only in input method list
++                  when you run ibus-setup on one of the languages.
++                  Other languages are hidden under an extended button.</long>
++      </locale>
++    </schema>
++    <schema>
+       <key>/schemas/desktop/ibus/panel/use_custom_font</key>
+       <applyto>/desktop/ibus/panel/use_custom_font</applyto>
+       <owner>ibus</owner>
+diff --git a/setup/enginecombobox.py b/setup/enginecombobox.py
+index 7383177..bff2407 100644
+--- a/setup/enginecombobox.py
++++ b/setup/enginecombobox.py
+@@ -43,7 +43,10 @@ class EngineComboBox(gtk.ComboBox):
+         self.connect("notify::active", self.__notify_active_cb)
+ 
+         self.__model = None
++        self.__all_model = None
++        self.__config = None
+         self.__title = _("Select an input method")
++        self.__show_sub_lang = False
+ 
+         renderer = gtk.CellRendererPixbuf()
+         renderer.set_property("xalign", 0)
+@@ -57,21 +60,51 @@ class EngineComboBox(gtk.ComboBox):
+         self.pack_start(renderer, True)
+         self.set_cell_data_func(renderer, self.__name_cell_data_cb)
+ 
+-    def set_engines(self, engines):
+-        self.__model = gtk.TreeStore(gobject.TYPE_PYOBJECT)
+-
+-        iter1 = self.__model.append(None)
+-        self.__model.set(iter1, 0, 0)
+-        lang = {}
+-        for e in engines:
+-            if ibus.use_bridge_hotkey() and \
+-               e.name == ibus.DEFAULT_BRIDGE_ENGINE_NAME:
+-                continue
+-            l = ibus.get_language_name(e.language)
+-            if l not in lang:
+-                lang[l] = []
+-            lang[l].append(e)
++    def __gconf_get_lang_list_from_locale(self):
++        common_list = ['en', 'Other']
++        if  self.__config == None:
++            return None
++        loc = None
++        try:
++            loc = locale.setlocale (locale.LC_ALL)
++        except:
++            pass
++        if loc == None:
++            return common_list
++        current_lang = ibus.get_language_name(loc)
++        if current_lang == None:
++            return common_list
++        group_list = self.__config.get_value("general/xkblayoutconfig/system",
++                                             "group_list", None)
++        if group_list == None:
++            return [loc] + common_list
++        group_list = list(group_list)
++        lang_list = None
++        for group in group_list:
++            group = str(group)
++            langs = self.__config.get_value("general/xkblayoutconfig/system",
++                                            group, [])
++            for lang in langs:
++                lang = str(lang)
++                if current_lang == ibus.get_language_name(lang):
++                    lang_list = langs
++                    break
++            if lang_list != None:
++                break
++        if lang_list == None:
++            return [loc] + common_list
++        return lang_list + common_list
++
++    def __has_engine_in_lang_list(self, engine, lang_list):
++        retval = False
++        for lang in lang_list:
++            if ibus.get_language_name(lang) == \
++                ibus.get_language_name(engine.language):
++                retval = True
++                break
++        return retval
+ 
++    def __model_append_langs(self, model, lang, visible):
+         keys = lang.keys()
+         keys.sort(locale.strcoll)
+         #add "Others" to the end of the combo box
+@@ -79,29 +112,89 @@ class EngineComboBox(gtk.ComboBox):
+             keys.remove(ibus.get_language_name("Other"))
+             keys += [ibus.get_language_name("Other")]
+         for l in keys:
+-            iter1 = self.__model.append(None)
+-            self.__model.set(iter1, 0, l)
++            iter1 = model.append(None)
++            model.set(iter1, 0, l)
+             def cmp_engine(a, b):
+                 if a.rank == b.rank:
+                     return locale.strcoll(a.longname, b.longname)
+                 return int(b.rank - a.rank)
+             lang[l].sort(cmp_engine)
+             for e in lang[l]:
+-                iter2 = self.__model.append(iter1)
+-                self.__model.set(iter2, 0, e)
++                iter2 = model.append(iter1)
++                model.set(iter2, 0, e)
++
++    def set_engines(self, engines):
++        self.__model = gtk.TreeStore(gobject.TYPE_PYOBJECT)
+ 
+-        self.set_model(self.__model)
++        iter1 = self.__model.append(None)
++        self.__model.set(iter1, 0, 0)
++        lang_list = self.__gconf_get_lang_list_from_locale()
++        lang = {}
++        sub_lang = {}
++        for e in engines:
++            if ibus.use_bridge_hotkey() and \
++               e.name == ibus.DEFAULT_BRIDGE_ENGINE_NAME:
++                continue
++            l = ibus.get_language_name(e.language)
++            if lang_list == None or \
++                self.__has_engine_in_lang_list(e, lang_list):
++                if l not in lang:
++                    lang[l] = []
++                lang[l].append(e)
++            else:
++                if l not in sub_lang:
++                    sub_lang[l] = []
++                sub_lang[l].append(e)
++
++        self.__model_append_langs(self.__model, lang, True)
++        iter1 = self.__model.append(None)
++        self.__model.set(iter1, 0, -1)
++
++        self.__all_model = gtk.TreeStore(gobject.TYPE_PYOBJECT)
++        iter1 = self.__all_model.append(None)
++        self.__all_model.set(iter1, 0, 0)
++        self.__model_append_langs(self.__all_model, lang, False)
++        iter1 = self.__all_model.append(None)
++        self.__all_model.set(iter1, 0, -1)
++        self.__model_append_langs(self.__all_model, sub_lang, False)
++
++        self.__toggle_sub_lang()
++
++    def __toggle_sub_lang(self):
++        self.set_model(None)
++        if self.__show_sub_lang:
++            self.set_model(self.__all_model)
++        else:
++            self.set_model(self.__model)
+         self.set_active(0)
+ 
+     def __icon_cell_data_cb(self, celllayout, renderer, model, iter):
+-        engine = self.__model.get_value(iter, 0)
++        model = self.get_model()
++        engine = model.get_value(iter, 0)
+ 
+         if isinstance(engine, str) or isinstance (engine, unicode):
+             renderer.set_property("visible", False)
+             renderer.set_property("sensitive", False)
+         elif isinstance(engine, int):
+-            renderer.set_property("visible", False)
+-            renderer.set_property("sensitive", False)
++            if engine == 0:
++                renderer.set_property("visible", False)
++                renderer.set_property("sensitive", False)
++                renderer.set_property("pixbuf", None)
++            elif engine < 0:
++                if not self.__show_sub_lang:
++                    pixbuf = load_icon("list-add", gtk.ICON_SIZE_LARGE_TOOLBAR)
++                else:
++                    pixbuf = load_icon("list-remove", gtk.ICON_SIZE_LARGE_TOOLBAR)
++                if pixbuf == None:
++                    pixbuf = load_icon("gtk-missing-image",
++                                       gtk.ICON_SIZE_LARGE_TOOLBAR)
++                if pixbuf == None:
++                    renderer.set_property("visible", False)
++                    renderer.set_property("sensitive", False)
++                    return
++                renderer.set_property("visible", True)
++                renderer.set_property("sensitive", True)
++                renderer.set_property("pixbuf", pixbuf)
+         else:
+             renderer.set_property("visible", True)
+             renderer.set_property("sensitive", True)
+@@ -113,7 +206,8 @@ class EngineComboBox(gtk.ComboBox):
+             renderer.set_property("pixbuf", pixbuf)
+ 
+     def __name_cell_data_cb(self, celllayout, renderer, model, iter):
+-        engine = self.__model.get_value(iter, 0)
++        model = self.get_model()
++        engine = model.get_value(iter, 0)
+ 
+         if isinstance (engine, str) or isinstance (engine, unicode):
+             renderer.set_property("sensitive", False)
+@@ -121,8 +215,15 @@ class EngineComboBox(gtk.ComboBox):
+             renderer.set_property("weight", pango.WEIGHT_NORMAL)
+         elif isinstance(engine, int):
+             renderer.set_property("sensitive", True)
+-            renderer.set_property("text", self.__title)
+-            renderer.set_property("weight", pango.WEIGHT_NORMAL)
++            if engine == 0:
++                renderer.set_property("text", self.__title)
++                renderer.set_property("weight", pango.WEIGHT_NORMAL)
++            elif engine < 0:
++                if not self.__show_sub_lang:
++                    renderer.set_property("text", _("Show all input methods"))
++                else:
++                    renderer.set_property("text", _("Show only input methods for your region"))
++                renderer.set_property("weight", pango.WEIGHT_BOLD)
+         else:
+             renderer.set_property("sensitive", True)
+             renderer.set_property("text", engine.longname)
+@@ -137,13 +238,21 @@ class EngineComboBox(gtk.ComboBox):
+             if i == 0 or i == -1:
+                 return None
+             iter = self.get_active_iter()
+-            return self.get_model()[iter][0]
++            model = self.get_model()
++            if model[iter][0] == -1:
++                self.__show_sub_lang = not self.__show_sub_lang
++                self.__toggle_sub_lang()
++                return None
++            return model[iter][0]
+         else:
+             raise AttributeError, 'unknown property %s' % property.name
+ 
+     def get_active_engine(self):
+         return self.get_property("active-engine")
+ 
++    def set_config(self, config):
++        self.__config = config
++
+     def get_title(self):
+         return self.__title
+ 
+diff --git a/setup/main.py b/setup/main.py
+index 192fb88..5a0170d 100644
+--- a/setup/main.py
++++ b/setup/main.py
+@@ -227,6 +227,7 @@ class Setup(object):
+         button.connect("toggled", self.__checkbutton_preload_engine_mode_toggled_cb)
+         self.__engines = self.__bus.list_engines()
+         self.__combobox = self.__builder.get_object("combobox_engines")
++        self.__combobox.set_config(self.__config)
+         self.__combobox.set_engines(self.__engines)
+ 
+         engines = self.__bus.list_active_engines()
+-- 
+1.7.4.4
+
