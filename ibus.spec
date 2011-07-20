@@ -5,7 +5,7 @@
 Summary:	Intelligent Input Bus for Linux OS
 Name:		ibus
 Version:	1.3.99.20110419
-Release:	0.2
+Release:	0.3
 License:	LGPL v2+
 Group:		Libraries
 URL:		http://code.google.com/p/ibus/
@@ -193,10 +193,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 %update_icon_cache hicolor
-%gconf_schema_install ibus
+%gconf_schema_install ibus.schemas
 
 %preun
-%gconf_schema_uninstall ibus
+%gconf_schema_uninstall ibus.schemas
 
 %postun
 %update_icon_cache hicolor
