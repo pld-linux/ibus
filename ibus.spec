@@ -5,7 +5,7 @@
 Summary:	Intelligent Input Bus for Linux OS
 Name:		ibus
 Version:	1.3.99.20110419
-Release:	0.1
+Release:	0.2
 License:	LGPL v2+
 Group:		Libraries
 URL:		http://code.google.com/p/ibus/
@@ -55,6 +55,8 @@ Requires:	gtk-update-icon-cache
 Requires(post):	GConf2
 Requires(preun):	GConf2
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
+
+%define		_libexecdir	%{_libdir}/ibus
 
 %description
 IBus means Intelligent Input Bus. It is an input framework for Linux
@@ -239,11 +241,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/gconf/schemas/ibus.schemas
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
-%attr(755,root,root) %{_libdir}/ibus-gconf
-%attr(755,root,root) %{_libdir}/ibus-ui-gtk
-%attr(755,root,root) %{_libdir}/ibus-x11
-%attr(755,root,root) %{_libdir}/ibus-engine-xkb
-%attr(755,root,root) %{_libdir}/ibus-xkb
+%attr(755,root,root) %{_libexecdir}/ibus-gconf
+%attr(755,root,root) %{_libexecdir}/ibus-ui-gtk
+%attr(755,root,root) %{_libexecdir}/ibus-x11
+%attr(755,root,root) %{_libexecdir}/ibus-engine-xkb
+%attr(755,root,root) %{_libexecdir}/ibus-xkb
 %dir %{py_sitescriptdir}/ibus
 %{py_sitescriptdir}/ibus/*
 %{_datadir}/ibus
