@@ -5,7 +5,7 @@
 Summary:	Intelligent Input Bus for Linux OS
 Name:		ibus
 Version:	1.3.99.20110419
-Release:	0.3
+Release:	0.4
 License:	LGPL v2+
 Group:		Libraries
 URL:		http://code.google.com/p/ibus/
@@ -52,6 +52,8 @@ Requires:	python-pynotify
 Requires:	python-pyxdg
 Requires:	hicolor-icon-theme
 Requires:	gtk-update-icon-cache
+# input-keyboard-symbolic icon
+Suggests:	gnome-icon-theme-symbolic
 Requires(post):	GConf2
 Requires(preun):	GConf2
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
