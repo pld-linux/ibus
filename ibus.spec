@@ -5,7 +5,7 @@
 Summary:	Intelligent Input Bus for Linux OS
 Name:		ibus
 Version:	1.3.99.20110419
-Release:	0.4
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 URL:		http://code.google.com/p/ibus/
