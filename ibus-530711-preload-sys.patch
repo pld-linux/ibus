@@ -1,6 +1,6 @@
-From 7f81445b3e6613d14f64253506a309095a37c8d7 Mon Sep 17 00:00:00 2001
+From fd80539e980f464192aed22c71e83ff3a6ec61b3 Mon Sep 17 00:00:00 2001
 From: fujiwarat <takao.fujiwara1@gmail.com>
-Date: Mon, 20 Jun 2011 19:04:42 +0900
+Date: Thu, 1 Sep 2011 14:38:13 +0900
 Subject: [PATCH] Reload preload engines until users customize the list.
 
 The idea is, if users don't customize the preload_engines with ibus-setup,
@@ -17,19 +17,19 @@ on ibus-setup, ibus-setup sets 'preload_engine_mode' as
 IBUS_PRELOAD_ENGINE_MODE_USER and users can customize the value
 'preload_engines'.
 ---
- bus/ibusimpl.c       |  402 +++++++++++++++++++++++++++++++++++++++-----------
- data/ibus.schemas.in |   13 ++
+ bus/ibusimpl.c       |  412 +++++++++++++++++++++++++++++++++++++++-----------
+ data/ibus.schemas.in |   15 ++-
  ibus/common.py       |    6 +
  setup/main.py        |   70 ++++++++-
  setup/setup.ui       |   21 +++-
  src/ibustypes.h      |   10 ++
- 6 files changed, 427 insertions(+), 95 deletions(-)
+ 6 files changed, 438 insertions(+), 96 deletions(-)
 
 diff --git a/bus/ibusimpl.c b/bus/ibusimpl.c
-index a7ae52b..bb4b8ae 100644
+index 1942504..3fce912 100644
 --- a/bus/ibusimpl.c
 +++ b/bus/ibusimpl.c
-@@ -144,6 +144,9 @@ static void     bus_ibus_impl_set_previous_engine
+@@ -142,6 +142,9 @@ static void     bus_ibus_impl_set_previous_engine
  static void     bus_ibus_impl_set_preload_engines
                                                  (BusIBusImpl        *ibus,
                                                   GVariant           *value);
@@ -39,7 +39,7 @@ index a7ae52b..bb4b8ae 100644
  static void     bus_ibus_impl_set_use_sys_layout
                                                  (BusIBusImpl        *ibus,
                                                   GVariant           *value);
-@@ -285,6 +288,259 @@ _panel_destroy_cb (BusPanelProxy *panel,
+@@ -283,6 +286,269 @@ _panel_destroy_cb (BusPanelProxy *panel,
  }
  
  static void
@@ -86,6 +86,16 @@ index a7ae52b..bb4b8ae 100644
 +
 +    variant = ibus_config_get_value (ibus->config, "general",
 +                                     "preload_engines");
++    if (variant != NULL && g_variant_classify (variant) == G_VARIANT_CLASS_ARRAY) {
++        GVariantIter iter;
++        const gchar *engine_name = NULL;
++        g_variant_iter_init (&iter, variant);
++        g_variant_iter_loop (&iter, "&s", &engine_name);
++        if (g_strcmp0 (engine_name, "ibus_null_engine") == 0) {
++            g_variant_unref (variant);
++            variant = NULL;
++        }
++    }
 +    if (variant == NULL) {
 +        /* Set LANG_RELATIVE mode for the initial login */
 +        preload_engine_mode = IBUS_PRELOAD_ENGINE_MODE_LANG_RELATIVE;
@@ -299,7 +309,7 @@ index a7ae52b..bb4b8ae 100644
  bus_ibus_impl_set_hotkey (BusIBusImpl *ibus,
                            GQuark       hotkey,
                            GVariant    *value)
-@@ -394,35 +650,50 @@ static void
+@@ -392,35 +658,50 @@ static void
  bus_ibus_impl_set_preload_engines (BusIBusImpl *ibus,
                                     GVariant    *value)
  {
@@ -372,7 +382,7 @@ index a7ae52b..bb4b8ae 100644
  }
  
  /**
-@@ -503,89 +774,47 @@ bus_ibus_impl_set_use_global_engine (BusIBusImpl *ibus,
+@@ -501,89 +782,47 @@ bus_ibus_impl_set_use_global_engine (BusIBusImpl *ibus,
      }
  }
  
@@ -484,7 +494,7 @@ index a7ae52b..bb4b8ae 100644
  #endif
  }
  
-@@ -601,6 +830,7 @@ const static struct {
+@@ -599,6 +838,7 @@ const static struct {
      { "general/hotkey", "next_engine_in_menu",   bus_ibus_impl_set_next_engine_in_menu },
      { "general/hotkey", "previous_engine",       bus_ibus_impl_set_previous_engine },
      { "general", "preload_engines",              bus_ibus_impl_set_preload_engines },
@@ -493,10 +503,19 @@ index a7ae52b..bb4b8ae 100644
      { "general", "use_global_engine",            bus_ibus_impl_set_use_global_engine },
      { "general", "embed_preedit_text",           bus_ibus_impl_set_embed_preedit_text },
 diff --git a/data/ibus.schemas.in b/data/ibus.schemas.in
-index 7ca4899..d4334e1 100644
+index 8979515..fef1810 100644
 --- a/data/ibus.schemas.in
 +++ b/data/ibus.schemas.in
-@@ -13,6 +13,19 @@
+@@ -6,7 +6,7 @@
+       <applyto>/desktop/ibus/general/preload_engines</applyto>
+       <owner>ibus</owner>
+       <type>list</type>
+-      <default>[]</default>
++      <default>[ibus_null_engine]</default>
+       <list_type>string</list_type>
+       <locale name="C">
+         <short>Preload engines</short>
+@@ -14,6 +14,19 @@
        </locale>
      </schema>
      <schema>
@@ -700,7 +719,7 @@ index f1e6d0b..562c091 100644
                      </child>
                    </object>
 diff --git a/src/ibustypes.h b/src/ibustypes.h
-index 6a31847..14b44fc 100644
+index 8146719..6151cd0 100644
 --- a/src/ibustypes.h
 +++ b/src/ibustypes.h
 @@ -186,6 +186,16 @@ typedef enum {
@@ -721,5 +740,5 @@ index 6a31847..14b44fc 100644
   * @x: x coordinate.
   * @y: y coordinate.
 -- 
-1.7.4.4
+1.7.5.4
 

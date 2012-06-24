@@ -1,25 +1,27 @@
+# TODO
+# - clean .py
 #
 # Conditional build:
 %bcond_without	gjsfile		# https://bugzilla.redhat.com/show_bug.cgi?id=657165
-#
+
+%define		ibus_gjs_version	3.1.4.20110823
 Summary:	Intelligent Input Bus for Linux OS
 Name:		ibus
-Version:	1.3.99.20110419
-Release:	2
+Version:	1.3.99.20110817
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 URL:		http://code.google.com/p/ibus/
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	d4f2729fecb92ae6b41f26c770b1a772
+# Source0-md5:	52614e55e966b7c7101a19b276c51f10
 Source1:	%{name}.xinputd
-Source100:	http://fujiwara.fedorapeople.org/ibus/gnome-shell/%{name}-gjs-1.3.99.20110714.tar.gz
-# Source100-md5:	57df6a7d6a9ca0f4b30a8fe135fdcb89
+Source100:	http://fujiwara.fedorapeople.org/ibus/gnome-shell/%{name}-gjs-%{ibus_gjs_version}.tar.gz
+# Source100-md5:	e97be8e1d0b22531b5000d4a6349dbbe
 Patch0:		%{name}-HEAD.patch
 Patch1:		%{name}-530711-preload-sys.patch
-Patch2:		%{name}-xx-icon-symbol.patch
-Patch3:		%{name}-541492-xkb.patch
-Patch4:		%{name}-xx-bridge-hotkey.patch
-Patch5:		%{name}-xx-setup-frequent-lang.patch
+Patch2:		%{name}-541492-xkb.patch
+Patch3:		%{name}-xx-bridge-hotkey.patch
+Patch4:		%{name}-xx-setup-frequent-lang.patch
 # Workaround for oxygen-gtk icon theme until bug 699103 is fixed.
 Patch91:	%{name}-711632-fedora-fallback-icon.patch
 BuildRequires:	GConf2-devel
@@ -35,23 +37,23 @@ BuildRequires:	intltool
 BuildRequires:	iso-codes
 BuildRequires:	libtool
 BuildRequires:	python
-BuildRequires:	rpmbuild(macros) >= 1.596
-BuildRequires:	rpm-pythonprov
 BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject-devel
+BuildRequires:	rpm-pythonprov
+BuildRequires:	rpmbuild(macros) >= 1.596
 BuildRequires:	xorg-lib-libxkbfile-devel
 Requires:	%{name}-gtk2 = %{version}-%{release}
 Requires:	%{name}-gtk3 = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	GConf2
+Requires:	gtk-update-icon-cache
+Requires:	hicolor-icon-theme
 Requires:	im-chooser
 Requires:	iso-codes
 Requires:	python-dbus >= 0.83.0
 Requires:	python-pygtk-gtk
 Requires:	python-pynotify
 Requires:	python-pyxdg
-Requires:	hicolor-icon-theme
-Requires:	gtk-update-icon-cache
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
 Requires(post):	GConf2
@@ -121,22 +123,21 @@ for ibus.
 %prep
 %setup -q
 %if %{with gjsfile}
-zcat %SOURCE100 | tar xf -
+zcat %{SOURCE100} | tar xf -
 %endif
 %patch0 -p1
-cp client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c
+cp -p client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
 mv data/ibus.schemas.in data/ibus.schemas.in.in
+%patch3 -p1
 %patch4 -p1
-%patch5 -p1
 
 %patch91 -p1
 
 %build
 %if %{with gjsfile}
-d=`basename %SOURCE100 .tar.gz`
+d=$(basename %{SOURCE100} .tar.gz)
 cd $d
 %configure
 %{__make}
@@ -177,11 +178,11 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}/{X11/xinit/xinput.d,xdg/autostart}
 mv $RPM_BUILD_ROOT{%{_desktopdir},%{_sysconfdir}/xdg/autostart}/ibus.desktop
 
 %if %{with gjsfile}
-d=`basename %SOURCE100 .tar.gz`
+d=$(basename %{SOURCE100} .tar.gz)
 cd $d
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
-%{__rm} $RPM_BUILD_ROOT%{_datadir}/locale/*/LC_MESSAGES/ibus-gjs.mo
+%{__rm} $RPM_BUILD_ROOT%{_localedir}/*/LC_MESSAGES/ibus-gjs.mo
 cd ..
 %endif
 
@@ -189,6 +190,9 @@ cd ..
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/gtk*/*/immodules/*.la
 
 %find_lang %{name}10
+
+# imsettings will start this daemon for us
+%{__rm} $RPM_BUILD_ROOT/etc/xdg/autostart/ibus.desktop
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -237,9 +241,7 @@ rm -rf $RPM_BUILD_ROOT
 %files -f %{name}10.lang
 %defattr(644,root,root,755)
 %doc AUTHORS README
-%config %{_sysconfdir}/X11/xinit/xinput.d/ibus.conf
-# imsettings will start this daemon for us
-#%{_sysconfdir}/xdg/autostart/ibus.desktop
+%config(noreplace) %verify(not md5 mtime size) /etc/X11/xinit/xinput.d/ibus.conf
 %{_sysconfdir}/gconf/schemas/ibus.schemas
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
@@ -250,10 +252,15 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libexecdir}/ibus-engine-xkb
 %attr(755,root,root) %{_libexecdir}/ibus-xkb
 %dir %{py_sitescriptdir}/ibus
-%{py_sitescriptdir}/ibus/*
+%{py_sitescriptdir}/ibus/*.py
+%{py_sitescriptdir}/ibus/*.py[co]
+%dir %{py_sitescriptdir}/ibus/interface
+%{py_sitescriptdir}/ibus/interface/*.py
+%{py_sitescriptdir}/ibus/interface/*.py[co]
 %{_datadir}/ibus
-%{_desktopdir}/*
-%{_iconsdir}/hicolor/*/apps/*
+%{_desktopdir}/*.desktop
+%{_iconsdir}/hicolor/*/apps/*.png
+%{_iconsdir}/hicolor/*/apps/*.svg
 
 %files libs
 %defattr(644,root,root,755)

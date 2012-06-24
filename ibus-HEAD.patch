@@ -1,1068 +1,696 @@
-From 80e5bd0785ca91a70f0b5fe511a3bd8e143d8d05 Mon Sep 17 00:00:00 2001
-From: Takao Fujiwara <takao.fujiwara1@gmail.com>
-Date: Wed, 27 Apr 2011 07:48:50 -0400
-Subject: [PATCH] Fix the zombie process of ibus-gconf when ibus-daemon
- restarts.
+From 9614076737ee88c092af209485d1d65d2269f4ad Mon Sep 17 00:00:00 2001
+From: Tsuyoshi Horo <horo@chromium.org>
+Date: Thu, 18 Aug 2011 11:48:30 -0400
+Subject: [PATCH] Fix for ibus_serializable_{get,set}_attachment.
 
-- Fix the typo in bus_dbus_impl_destroy() (dbusimpl.c)
-- Modify bus_server_run() and _ibus_exit() (ibusimpl.c, server.c)
-  bus_ibus_impl_destroy() needs to be called so that waitpid()
-  prevents processes from becoming zombie.
-- Change the declaration of bus_server_quit(). (server.h)
-
-BUG=redhat#697471
 TEST=Linux desktop
 
-Review URL: http://codereview.appspot.com/4440059
-Patch from Takao Fujiwara <takao.fujiwara1@gmail.com>.
+Review URL: http://codereview.appspot.com/4905054
+Patch from Tsuyoshi Horo <horo@chromium.org>.
 ---
- bus/dbusimpl.c |    5 ++---
- bus/ibusimpl.c |   40 +---------------------------------------
- bus/server.c   |   50 +++++++++++++++++++++++++++++++++++++++++++++++++-
- bus/server.h   |    3 ++-
- src/ibusbus.c  |    8 +++++++-
- 5 files changed, 61 insertions(+), 45 deletions(-)
+ src/ibusserializable.c        |   18 +++++++++---------
+ src/ibusserializable.h        |    3 +--
+ src/tests/ibus-serializable.c |   34 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 44 insertions(+), 11 deletions(-)
 
-diff --git a/bus/dbusimpl.c b/bus/dbusimpl.c
-index d67a3ce..5616222 100644
---- a/bus/dbusimpl.c
-+++ b/bus/dbusimpl.c
-@@ -577,11 +577,10 @@ bus_dbus_impl_destroy (BusDBusImpl *dbus)
-     dbus->rules = NULL;
- 
-     for (p = dbus->connections; p != NULL; p = p->next) {
--        GDBusConnection *connection = G_DBUS_CONNECTION (p->data);
-+        BusConnection *connection = BUS_CONNECTION (p->data);
-         g_signal_handlers_disconnect_by_func (connection,
-                 bus_dbus_impl_connection_destroy_cb, dbus);
--        /* FIXME should handle result? */
--        g_dbus_connection_close (connection, NULL, NULL, NULL);
-+        ibus_object_destroy (IBUS_OBJECT (connection));
-         g_object_unref (connection);
-     }
-     g_list_free (dbus->connections);
-diff --git a/bus/ibusimpl.c b/bus/ibusimpl.c
-index a7ae52b..b356b2c 100644
---- a/bus/ibusimpl.c
-+++ b/bus/ibusimpl.c
-@@ -24,9 +24,7 @@
- #include <sys/types.h>
- #include <sys/wait.h>
- #include <signal.h>
--#include <stdlib.h>
- #include <locale.h>
--#include <string.h>
- #include <strings.h>
- #include "types.h"
- #include "ibusimpl.h"
-@@ -937,7 +935,6 @@ bus_ibus_impl_destroy (BusIBusImpl *ibus)
-         ibus->fake_context = NULL;
-     }
- 
--    bus_server_quit ();
-     IBUS_OBJECT_CLASS (bus_ibus_impl_parent_class)->destroy (IBUS_OBJECT (ibus));
- }
- 
-@@ -1682,43 +1679,8 @@ _ibus_exit (BusIBusImpl           *ibus,
-     g_dbus_connection_flush_sync (g_dbus_method_invocation_get_connection (invocation),
-                                   NULL,
-                                   NULL);
--    bus_server_quit ();
- 
--    if (!restart) {
--        exit (0);
--    }
--    else {
--        extern gchar **g_argv;
--        gchar *exe;
--        gint fd;
--
--        exe = g_strdup_printf ("/proc/%d/exe", getpid ());
--        exe = g_file_read_link (exe, NULL);
--
--        if (exe == NULL)
--            exe = BINDIR "/ibus-daemon";
--
--        /* close all fds except stdin, stdout, stderr */
--        for (fd = 3; fd <= sysconf (_SC_OPEN_MAX); fd ++) {
--            close (fd);
--        }
--
--        execv (exe, g_argv);
--
--        /* If the server binary is replaced while the server is running,
--         * "readlink /proc/[pid]/exe" might return a path with " (deleted)"
--         * suffix. */
--        const gchar suffix[] = " (deleted)";
--        if (g_str_has_suffix (exe, suffix)) {
--            exe [strlen (exe) - sizeof (suffix) + 1] = '\0';
--            execv (exe, g_argv);
--        }
--        g_warning ("execv %s failed!", g_argv[0]);
--        exit (-1);
--    }
--
--    /* should not reach here */
--    g_assert_not_reached ();
-+    bus_server_quit (restart);
- }
- 
- /**
-diff --git a/bus/server.c b/bus/server.c
-index d180513..c2ab9a4 100644
---- a/bus/server.c
-+++ b/bus/server.c
-@@ -21,6 +21,8 @@
-  */
- #include "server.h"
- #include <gio/gio.h>
-+#include <stdlib.h>
-+#include <string.h>
- #include "dbusimpl.h"
- #include "ibusimpl.h"
- #include "option.h"
-@@ -30,6 +32,40 @@ static GMainLoop *mainloop = NULL;
- static BusDBusImpl *dbus = NULL;
- static BusIBusImpl *ibus = NULL;
- static gchar *address = NULL;
-+static gboolean _restart = FALSE;
-+
-+static void
-+_restart_server (void)
-+{
-+    extern gchar **g_argv;
-+    gchar *exe;
-+    gint fd;
-+
-+    exe = g_strdup_printf ("/proc/%d/exe", getpid ());
-+    exe = g_file_read_link (exe, NULL);
-+
-+    if (exe == NULL)
-+        exe = BINDIR "/ibus-daemon";
-+
-+    /* close all fds except stdin, stdout, stderr */
-+    for (fd = 3; fd <= sysconf (_SC_OPEN_MAX); fd ++) {
-+        close (fd);
-+    }
-+
-+    _restart = FALSE;
-+    execv (exe, g_argv);
-+
-+    /* If the server binary is replaced while the server is running,
-+     * "readlink /proc/[pid]/exe" might return a path with " (deleted)"
-+     * suffix. */
-+    const gchar suffix[] = " (deleted)";
-+    if (g_str_has_suffix (exe, suffix)) {
-+        exe [strlen (exe) - sizeof (suffix) + 1] = '\0';
-+        execv (exe, g_argv);
-+    }
-+    g_warning ("execv %s failed!", g_argv[0]);
-+    exit (-1);
-+}
- 
- /**
-  * bus_new_connection_cb:
-@@ -112,11 +148,23 @@ bus_server_run (void)
-     mainloop = NULL;
-     g_free (address);
-     address = NULL;
-+
-+    /* When _ibus_exit() is called, bus_ibus_impl_destroy() needs
-+     * to be called so that waitpid() prevents the processes from
-+     * becoming the daemons. So we run execv() after
-+     * ibus_object_destroy(ibus) is called here. */
-+    if (_restart) {
-+        _restart_server ();
-+
-+        /* should not reach here */
-+        g_assert_not_reached ();
-+    }
- }
- 
- void
--bus_server_quit (void)
-+bus_server_quit (gboolean restart)
- {
-+    _restart = restart;
-     if (mainloop)
-         g_main_loop_quit (mainloop);
- }
-diff --git a/bus/server.h b/bus/server.h
-index 6dfd79a..e1cb3ec 100644
---- a/bus/server.h
-+++ b/bus/server.h
-@@ -43,10 +43,11 @@ void         bus_server_run         (void);
- 
- /**
-  * bus_server_quit:
-+ * @restart: TRUE if ibus-daemon restarts.
-  *
-  * Quit the glib main loop.
-  */
--void         bus_server_quit        (void);
-+void         bus_server_quit        (gboolean restart);
- 
- /**
-  * bus_server_get_address:
-diff --git a/src/ibusbus.c b/src/ibusbus.c
-index 0e9418e..39ad784 100644
---- a/src/ibusbus.c
-+++ b/src/ibusbus.c
-@@ -236,7 +236,13 @@ _connection_closed_cb (GDBusConnection  *connection,
-                        IBusBus          *bus)
- {
-     if (error) {
--        g_warning ("_connection_closed_cb: %s", error->message);
-+        /* We replaced g_warning with g_debug here because
-+         * currently when ibus-daemon restarts, GTK client calls this and
-+         * _g_dbus_worker_do_read_cb() sets the error message:
-+         * "Underlying GIOStream returned 0 bytes on an async read"
-+         * http://git.gnome.org/browse/glib/tree/gio/gdbusprivate.c#n693
-+         * However we think the error message is almost harmless. */
-+        g_debug ("_connection_closed_cb: %s", error->message);
-     }
- 
-     g_assert (bus->priv->connection == connection);
--- 
-1.7.4.4
-
-From d059132885d3c90647f08f3083e39daa9f82b700 Mon Sep 17 00:00:00 2001
-From: Ryo Onodera <onodera@clear-code.com>
-Date: Tue, 17 May 2011 20:07:40 +0900
-Subject: [PATCH] fix wrong forward key event signature
-
----
- ibus/engine.py            |    4 ++--
- ibus/interface/iengine.py |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/ibus/engine.py b/ibus/engine.py
-index 8cbcee3..fe5dd98 100644
---- a/ibus/engine.py
-+++ b/ibus/engine.py
-@@ -114,8 +114,8 @@ class EngineBase(object.Object):
-         text = serializable.serialize_object(text)
-         return self.__proxy.CommitText(text)
- 
--    def forward_key_event(self, keyval, state):
--        return self.__proxy.ForwardKeyEvent(keyval, state)
-+    def forward_key_event(self, keyval, keycode, state):
-+        return self.__proxy.ForwardKeyEvent(keyval, keycode, state)
- 
-     def update_preedit_text(self, text, cursor_pos, visible, mode=common.IBUS_ENGINE_PREEDIT_CLEAR):
-         text = serializable.serialize_object(text)
-diff --git a/ibus/interface/iengine.py b/ibus/interface/iengine.py
-index 0e0f4ee..9e0d981 100644
---- a/ibus/interface/iengine.py
-+++ b/ibus/interface/iengine.py
-@@ -104,8 +104,8 @@ class IEngine(dbus.service.Object):
-     @signal(signature="v")
-     def CommitText(self, text): pass
- 
--    @signal(signature="uu")
--    def ForwardKeyEvent(self, keyval, state): pass
-+    @signal(signature="uuu")
-+    def ForwardKeyEvent(self, keyval, keycode, state): pass
- 
-     @signal(signature="vubu")
-     def UpdatePreeditText(self, text, cursor_pos, visible, mode): pass
--- 
-1.7.4.4
-
-From d3e750eab6db7035f494fcdb328b87b2923e33a2 Mon Sep 17 00:00:00 2001
-From: Yusuke Sato <yusukes@chromium.org>
-Date: Wed, 1 Jun 2011 23:37:14 +0900
-Subject: [PATCH] Send the new capabilities to ibus-daemon in
- ibus_im_context_set_use_preedit.
-
-BUG=none
-TEST=none
-
-Review URL: http://codereview.appspot.com/4529103
----
- client/gtk2/ibusimcontext.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
-index ebae09d..4a894b0 100644
---- a/client/gtk2/ibusimcontext.c
-+++ b/client/gtk2/ibusimcontext.c
-@@ -942,6 +942,8 @@ ibus_im_context_set_use_preedit (GtkIMContext *context, gboolean use_preedit)
-         else {
-             ibusimcontext->caps &= ~IBUS_CAP_PREEDIT_TEXT;
+diff --git a/src/ibusserializable.c b/src/ibusserializable.c
+index 2e4b21f..ed89534 100644
+--- a/src/ibusserializable.c
++++ b/src/ibusserializable.c
+@@ -164,7 +164,7 @@ _g_value_serialize (GValue          *value)
+         {                                                               \
+             g##_type v;                                                 \
+             v = g_value_get_##_type (value);                            \
+-            return g_variant_new ("v", g_variant_new (signature, v));   \
++            return g_variant_new (signature, v);                        \
          }
-+        ibus_input_context_set_capabilities (ibusimcontext->ibuscontext,
-+                                             ibusimcontext->caps);
-     }
-     gtk_im_context_set_use_preedit (ibusimcontext->slave, use_preedit);
- }
--- 
-1.7.4.4
-
-From 52425daa537a32bed1781958e1ef62dbf199ad8b Mon Sep 17 00:00:00 2001
-From: Peng Huang <shawn.p.huang@gmail.com>
-Date: Mon, 6 Jun 2011 09:30:27 -0400
-Subject: [PATCH] Fix Python input context binding.
-
-Export "forward-key-event" and "delete-surrounding-text" signals to Python; clear __needs_surrounding_text property on "enabled" and "disabled" signals.
-
-BUG=none
-TEST=briefly tested, at least I don't see any regression
-
-Review URL: http://codereview.appspot.com/4437062
----
- ibus/inputcontext.py            |   26 +++++++++++++++++++++++++-
- ibus/interface/iinputcontext.py |    3 +++
- 2 files changed, 28 insertions(+), 1 deletions(-)
-
-diff --git a/ibus/inputcontext.py b/ibus/inputcontext.py
-index d143727..ceeb56d 100644
---- a/ibus/inputcontext.py
-+++ b/ibus/inputcontext.py
-@@ -116,6 +116,16 @@ class InputContext(object.Object):
-             gobject.TYPE_NONE,
-             ()
-         ),
-+        "forward-key-event" : (
-+            gobject.SIGNAL_RUN_LAST,
-+            gobject.TYPE_NONE,
-+            (gobject.TYPE_UINT, gobject.TYPE_UINT, gobject.TYPE_UINT)
-+        ),
-+        "delete-surrounding-text" : (
-+            gobject.SIGNAL_RUN_LAST,
-+            gobject.TYPE_NONE,
-+            (gobject.TYPE_INT, gobject.TYPE_UINT)
-+        ),
+     CASE_ENTRY(CHAR, char, "y");
+     CASE_ENTRY(BOOLEAN, boolean, "b");
+@@ -198,14 +198,14 @@ _g_value_deserialize (GVariant *variant)
      }
  
-     def __init__(self, bus, path, watch_signals=False):
-@@ -142,8 +152,14 @@ class InputContext(object.Object):
-         self.__signal_matches.append(m)
-         m = self.__context.connect_to_signal("RequireSurroundingText", self.__require_surrounding_text_cb)
-         self.__signal_matches.append(m)
-+        m = self.__context.connect_to_signal("Enabled", self.__enabled_cb)
-+        self.__signal_matches.append(m)
-+        m = self.__context.connect_to_signal("Disabled", self.__disabled_cb)
-+        self.__signal_matches.append(m)
- 
--        m = self.__context.connect_to_signal("Enabled",             lambda *args: self.emit("enabled"))
-+        m = self.__context.connect_to_signal("ForwardKeyEvent",            lambda *args: self.emit("forward-key-event", *args))
-+        self.__signal_matches.append(m)
-+        m = self.__context.connect_to_signal("DeleteSurroundingText",            lambda *args: self.emit("delete-surrounding-text", *args))
-         self.__signal_matches.append(m)
-         m = self.__context.connect_to_signal("Disabled",            lambda *args: self.emit("disabled"))
-         self.__signal_matches.append(m)
-@@ -168,6 +184,14 @@ class InputContext(object.Object):
-         m = self.__context.connect_to_signal("CursorDownLookupTable", lambda *args: self.emit("cursor-down-lookup-table"))
-         self.__signal_matches.append(m)
- 
-+    def __enabled_cb(self, *args):
-+        self.__needs_surrounding_text = False
-+        self.emit("enabled")
-+
-+    def __disabled_cb(self, *args):
-+        self.__needs_surrounding_text = False
-+        self.emit("disabled")
-+
-     def __commit_text_cb(self, *args):
-         text = serializable.deserialize_object(args[0])
-         self.emit("commit-text", text)
-diff --git a/ibus/interface/iinputcontext.py b/ibus/interface/iinputcontext.py
-index 2db1c9b..1d3cd2a 100644
---- a/ibus/interface/iinputcontext.py
-+++ b/ibus/interface/iinputcontext.py
-@@ -95,6 +95,9 @@ class IInputContext(dbus.service.Object):
-     @signal(signature="uuu")
-     def ForwardKeyEvent(self, keyval, keycode, state): pass
- 
-+    @signal(signature="iu")
-+    def DeleteSurroundingText(self, offset_from_cursor, nchars): pass
-+
-     @signal(signature="vub")
-     def UpdatePreeditText(self, text, cursor_pos, visible): pass
- 
--- 
-1.7.4.4
-
-From 59ce675e335e599ed18d74ab8849b9a5fe75d4be Mon Sep 17 00:00:00 2001
-From: Peng Huang <shawn.p.huang@gmail.com>
-Date: Mon, 13 Jun 2011 13:18:29 -0400
-Subject: [PATCH] Fix some race condition between idle and timeout
- events. Also fix a memory leak.
-
-BUG=http://crosbug.com/16387
-TEST=Linux desktop
-
-Review URL: http://codereview.appspot.com/4568072
----
- bus/engineproxy.c |   46 ++++++++++++++++++++++++++++++----------------
- 1 files changed, 30 insertions(+), 16 deletions(-)
-
-diff --git a/bus/engineproxy.c b/bus/engineproxy.c
-index 0c6f45d..f74af12 100644
---- a/bus/engineproxy.c
-+++ b/bus/engineproxy.c
-@@ -603,7 +603,8 @@ bus_engine_proxy_new_internal (const gchar     *path,
-     g_assert (IBUS_IS_ENGINE_DESC (desc));
-     g_assert (G_IS_DBUS_CONNECTION (connection));
- 
--
-+    GDBusProxyFlags flags = G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START |
-+                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES;
-     BusEngineProxy *engine =
-         (BusEngineProxy *) g_initable_new (BUS_TYPE_ENGINE_PROXY,
-                                            NULL,
-@@ -613,7 +614,7 @@ bus_engine_proxy_new_internal (const gchar     *path,
-                                            "g-interface-name",  IBUS_INTERFACE_ENGINE,
-                                            "g-object-path",     path,
-                                            "g-default-timeout", g_gdbus_timeout,
--                                           "g-flags",           G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START | G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
-+                                           "g-flags",           flags,
-                                            NULL);
-     const gchar *layout = ibus_engine_desc_get_layout (desc);
-     if (layout != NULL && layout[0] != '\0') {
-@@ -638,24 +639,33 @@ static void
- engine_proxy_new_data_free (EngineProxyNewData *data)
- {
-     if (data->simple != NULL) {
--        if (data->handler_id != 0)
--            g_signal_handler_disconnect (data->component, data->handler_id);
-         g_object_unref (data->simple);
+     typedef gchar *gstring;
+-#define IF_ENTRY(TYPE, _type, signature)                    \
+-    if (type ==  G_VARIANT_TYPE_##TYPE) {                   \
+-        g##_type v;                                         \
+-        g_variant_get (variant, signature, &v);             \
+-        value = g_slice_new0 (GValue);                      \
+-        g_value_init (value, G_TYPE_##TYPE);                \
+-        g_value_set_##_type (value, v);                     \
+-        return value;                                       \
++#define IF_ENTRY(TYPE, _type, signature)                      \
++    if (g_variant_type_equal(type, G_VARIANT_TYPE_##TYPE)) {  \
++        g##_type v;                                           \
++        g_variant_get (variant, signature, &v);               \
++        value = g_slice_new0 (GValue);                        \
++        g_value_init (value, G_TYPE_##TYPE);                  \
++        g_value_set_##_type (value, v);                       \
++        return value;                                         \
      }
- 
--    if (data->component != NULL)
-+    if (data->desc != NULL) {
-+        g_object_unref (data->desc);
-+    }
-+
-+    if (data->component != NULL) {
-+        if (data->handler_id != 0) {
-+            g_signal_handler_disconnect (data->component, data->handler_id);
-+        }
-         g_object_unref (data->component);
-+    }
- 
--    if (data->factory != NULL)
-+    if (data->factory != NULL) {
-         g_object_unref (data->factory);
-+    }
- 
--    if (data->timeout_id != 0)
-+    if (data->timeout_id != 0) {
-         g_source_remove (data->timeout_id);
-+    }
- 
-     if (data->cancellable != NULL) {
--        if (data->cancelled_handler_id != 0)
-+        if (data->cancelled_handler_id != 0) {
-             g_cancellable_disconnect (data->cancellable,
--                data->cancelled_handler_id);
-+                                      data->cancelled_handler_id);
-+        }
-         g_object_unref (data->cancellable);
-     }
- 
-@@ -772,7 +782,8 @@ timeout_cb (EngineProxyNewData *data)
- /**
-  * cancelled_cb:
+ #define G_VARIANT_TYPE_CHAR G_VARIANT_TYPE_BYTE
+     IF_ENTRY(CHAR, char, "y");
+diff --git a/src/ibusserializable.h b/src/ibusserializable.h
+index 358af32..8fd9f8a 100644
+--- a/src/ibusserializable.h
++++ b/src/ibusserializable.h
+@@ -87,12 +87,11 @@
+  * ibus_serializable_get_attachment:
+  * @o: An IBusSerializable.
+  * @k: String formatted key for indexing value.
+- * @v: Value to be attached. Should be also serializable.
   *
-- * A callback function to be called when someone calls g_cancellable_cancel() for the cancellable object for bus_engine_proxy_new.
-+ * A callback function to be called when someone calls g_cancellable_cancel()
-+ * for the cancellable object for bus_engine_proxy_new.
-  * Call the GAsyncReadyCallback.
+  * Get a value from attachment of an IBusSerializable.
+  * This macro is an convenient wrapper of ibus_serializable_get_qattachment().
   */
- static gboolean
-@@ -793,8 +804,12 @@ static void
- cancelled_cb (GCancellable       *cancellable,
-               EngineProxyNewData *data)
- {
--    /* Cancel the bus_engine_proxy_new() in idle to avoid deadlock */
--    g_idle_add ((GSourceFunc) cancelled_idle_cb, data);
-+    /* Cancel the bus_engine_proxy_new() in idle to avoid deadlock.
-+     * And use HIGH priority to avoid timeout event happening before
-+     * idle callback. */
-+    g_idle_add_full (G_PRIORITY_HIGH,
-+                    (GSourceFunc) cancelled_idle_cb,
-+                    data, NULL);
+-#define ibus_serializable_get_attachment(o, k, v)  \
++#define ibus_serializable_get_attachment(o, k)  \
+     ibus_serializable_get_qattachment (o, g_quark_from_string (k))
+ 
+ /**
+diff --git a/src/tests/ibus-serializable.c b/src/tests/ibus-serializable.c
+index c2a7529..e2541ec 100644
+--- a/src/tests/ibus-serializable.c
++++ b/src/tests/ibus-serializable.c
+@@ -128,6 +128,39 @@ test_property (void)
+     g_variant_type_info_assert_no_infos ();
  }
  
- void
-@@ -831,13 +846,12 @@ bus_engine_proxy_new (IBusEngineDesc      *desc,
-     data->simple = simple;
-     data->timeout = timeout;
- 
--    g_object_set_data ((GObject *)data->simple, "EngineProxyNewData", data);
--
-     data->factory = bus_component_get_factory (data->component);
- 
-     if (data->factory == NULL) {
--        /* The factory is not ready yet. Create the factory first, and wait for the "notify::factory" signal.
--         * In the handler of "notify::factory", we'll create the engine proxy. */
-+        /* The factory is not ready yet. Create the factory first, and wait for
-+         * the "notify::factory" signal. In the handler of "notify::factory",
-+         * we'll create the engine proxy. */
-         data->handler_id = g_signal_connect (data->component,
-                                              "notify::factory",
-                                              G_CALLBACK (notify_factory_cb),
--- 
-1.7.4.4
-
-From fc9dedec30f724e91e7b3bb9111177e96b58ee43 Mon Sep 17 00:00:00 2001
-From: Peng Huang <shawn.p.huang@gmail.com>
-Date: Wed, 15 Jun 2011 10:38:17 -0400
-Subject: [PATCH] Add IBUS_ERROR domain and reply IBUS_ERROR_NO_ENGINE
- in org.freedesktop.IBus.InputContext.GetEngine
-
-BUG=None
-TEST=Manually
-
-Review URL: http://codereview.appspot.com/4528140
----
- bus/inputcontext.c                |    7 ++++-
- src/Makefile.am                   |    2 +
- src/ibus.h                        |    1 +
- src/ibuserror.c                   |   41 +++++++++++++++++++++++++++++++++
- src/ibuserror.h                   |   46 +++++++++++++++++++++++++++++++++++++
- src/ibusinputcontext.c            |   15 +++++++++--
- src/ibusshare.c                   |    1 +
- src/ibustypes.h                   |    9 +++++++
- src/tests/ibus-gi-inputcontext.py |   34 +++++++++++++++++++++++++++
- 9 files changed, 151 insertions(+), 5 deletions(-)
- create mode 100644 src/ibuserror.c
- create mode 100644 src/ibuserror.h
- create mode 100755 src/tests/ibus-gi-inputcontext.py
-
-diff --git a/bus/inputcontext.c b/bus/inputcontext.c
-index bad90ec..1567c5f 100644
---- a/bus/inputcontext.c
-+++ b/bus/inputcontext.c
-@@ -1040,8 +1040,11 @@ _ic_get_engine (BusInputContext       *context,
-                         g_variant_new ("(v)", ibus_serializable_serialize ((IBusSerializable *)desc)));
-     }
-     else {
--        g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR, G_DBUS_ERROR_FAILED,
--                        "Input context does not have engine.");
-+        g_dbus_method_invocation_return_error (
-+                invocation,
-+                IBUS_ERROR,
-+                IBUS_ERROR_NO_ENGINE,
-+                "Input context does not have engine.");
-     }
- }
- 
-diff --git a/src/Makefile.am b/src/Makefile.am
-index 632fc72..a53bd23 100644
---- a/src/Makefile.am
-+++ b/src/Makefile.am
-@@ -70,6 +70,7 @@ ibus_sources =              \
-     ibusservice.c           \
-     ibusfactory.c           \
-     ibusengine.c            \
-+    ibuserror.c				\
-     ibustext.c              \
-     ibuskeymap.c            \
-     ibusattribute.c         \
-@@ -114,6 +115,7 @@ ibus_headers =              \
-     ibusservice.h           \
-     ibusfactory.h           \
-     ibusengine.h            \
-+    ibuserror.h				\
-     ibustext.h              \
-     ibuskeymap.h            \
-     ibusattribute.h         \
-diff --git a/src/ibus.h b/src/ibus.h
-index 8df7160..c408f3d 100644
---- a/src/ibus.h
-+++ b/src/ibus.h
-@@ -35,6 +35,7 @@
- #include <ibusservice.h>
- #include <ibusfactory.h>
- #include <ibusengine.h>
-+#include <ibuserror.h>
- #include <ibusproperty.h>
- #include <ibusproplist.h>
- #include <ibuslookuptable.h>
-diff --git a/src/ibuserror.c b/src/ibuserror.c
-new file mode 100644
-index 0000000..c50c164
---- /dev/null
-+++ b/src/ibuserror.c
-@@ -0,0 +1,41 @@
-+/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
-+/* vim:set et sts=4: */
-+/* ibus - The Input Bus
-+ * Copyright (C) 2011 Peng Huang <shawn.p.huang@gmail.com>
-+ *
-+ * This library is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU Lesser General Public
-+ * License as published by the Free Software Foundation; either
-+ * version 2 of the License, or (at your option) any later version.
-+ *
-+ * This library is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
-+ * Lesser General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU Lesser General Public
-+ * License along with this library; if not, write to the
-+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-+ * Boston, MA 02111-1307, USA.
-+ */
-+
-+#include "ibuserror.h"
-+
-+#include <gio/gio.h>
-+#include "ibustypes.h"
-+
-+static const GDBusErrorEntry ibus_error_entries[] =
++static void
++test_attachment (void)
 +{
-+    { IBUS_ERROR_NO_ENGINE,         "org.freedesktop.IBus.Error.NoEngine" },
-+};
++    IBusText *text =  ibus_text_new_from_string ("main text");
 +
-+GQuark
-+ibus_error_quark (void)
-+{
-+    static volatile gsize quark_volatile = 0;
-+    g_dbus_error_register_error_domain ("ibus-error-quark",
-+                                        &quark_volatile,
-+                                        ibus_error_entries,
-+                                        G_N_ELEMENTS (ibus_error_entries));
-+    return (GQuark) quark_volatile;
++    GValue value1 = { 0 };
++    g_value_init(&value1, G_TYPE_INT);
++    g_value_set_int(&value1, 100);
++    ibus_serializable_set_attachment ((IBusSerializable *)text, "key1", &value1);
++
++    GValue value2 = { 0 };
++    g_value_init(&value2, G_TYPE_STRING);
++    g_value_set_string(&value2, "value string");
++    ibus_serializable_set_attachment ((IBusSerializable *)text, "key2", &value2);
++
++    GVariant *variant = ibus_serializable_serialize ((IBusSerializable *)text);
++    g_object_unref ((IBusSerializable *)text);
++
++    IBusSerializable *object = (IBusSerializable *) ibus_serializable_deserialize (variant);
++    g_variant_unref (variant);
++
++    g_assert_cmpstr (((IBusText *)object)->text, ==, "main text");
++
++    const GValue *newvalue1 = ibus_serializable_get_attachment (object, "key1");
++    g_assert (newvalue1 != NULL);
++    g_assert (g_value_get_int (newvalue1) == 100);
++
++    const GValue *newvalue2 = ibus_serializable_get_attachment (object, "key2");
++    g_assert (newvalue2 != NULL);
++    g_assert_cmpstr (g_value_get_string (newvalue2), ==, "value string");
++
++    g_variant_type_info_assert_no_infos ();
 +}
-diff --git a/src/ibuserror.h b/src/ibuserror.h
-new file mode 100644
-index 0000000..75c64b9
---- /dev/null
-+++ b/src/ibuserror.h
-@@ -0,0 +1,46 @@
-+/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
-+/* vim:set et sts=4: */
-+/* ibus - The Input Bus
-+ * Copyright (C) 2011 Peng Huang <shawn.p.huang@gmail.com>
-+ *
-+ * This library is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU Lesser General Public
-+ * License as published by the Free Software Foundation; either
-+ * version 2 of the License, or (at your option) any later version.
-+ *
-+ * This library is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the GNU
-+ * Lesser General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU Lesser General Public
-+ * License along with this library; if not, write to the
-+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-+ * Boston, MA 02111-1307, USA.
-+ */
-+
-+#if !defined (__IBUS_H_INSIDE__) && !defined (IBUS_COMPILATION)
-+#error "Only <ibus.h> can be included directly"
-+#endif
-+
-+/**
-+ * SECTION: ibusshare
-+ * @short_description: Shared utility functions and definition.
-+ * @stability: Stable
-+ *
-+ * This file defines some utility functions and definition
-+ * which are shared among ibus component and services.
-+ */
-+
-+#ifndef __IBUS_ERROR_H_
-+#define __IBUS_ERROR_H_
-+
-+#include <glib.h>
-+
-+G_BEGIN_DECLS
-+
-+#define IBUS_ERROR ibus_error_quark()
-+GQuark ibus_error_quark (void);
-+
-+G_END_DECLS
-+#endif
-diff --git a/src/ibusinputcontext.c b/src/ibusinputcontext.c
-index e6f97e8..78d454e 100644
---- a/src/ibusinputcontext.c
-+++ b/src/ibusinputcontext.c
-@@ -27,6 +27,7 @@
- #include "ibusattribute.h"
- #include "ibuslookuptable.h"
- #include "ibusproplist.h"
-+#include "ibuserror.h"
  
- #define IBUS_INPUT_CONTEXT_GET_PRIVATE(o)  \
-    (G_TYPE_INSTANCE_GET_PRIVATE ((o), IBUS_TYPE_INPUT_CONTEXT, IBusInputContextPrivate))
-@@ -1164,7 +1165,7 @@ IBusEngineDesc *
- ibus_input_context_get_engine (IBusInputContext *context)
- {
-     g_assert (IBUS_IS_INPUT_CONTEXT (context));
--    GVariant *result;
-+    GVariant *result = NULL;
-     GError *error = NULL;
-     result = g_dbus_proxy_call_sync ((GDBusProxy *) context,
-                                      "GetEngine",               /* method_name */
-@@ -1174,9 +1175,17 @@ ibus_input_context_get_engine (IBusInputContext *context)
-                                      NULL,                      /* cancellable */
-                                      &error                     /* error */
-                                      );
--
-     if (result == NULL) {
--        g_warning ("%s.GetEngine: %s", IBUS_INTERFACE_INPUT_CONTEXT, error->message);
-+        if (g_error_matches (error, IBUS_ERROR, IBUS_ERROR_NO_ENGINE)) {
-+            g_debug ("%s.GetEngine: %s",
-+                     IBUS_INTERFACE_INPUT_CONTEXT,
-+                     error->message);
-+        }
-+        else {
-+            g_warning ("%s.GetEngine: %s",
-+                       IBUS_INTERFACE_INPUT_CONTEXT,
-+                       error->message);
-+        }
-         g_error_free (error);
-         return NULL;
-     }
-diff --git a/src/ibusshare.c b/src/ibusshare.c
-index 1b8ae2a..19f9f65 100644
---- a/src/ibusshare.c
-+++ b/src/ibusshare.c
-@@ -318,6 +318,7 @@ void
- ibus_init (void)
- {
-     g_type_init ();
-+    IBUS_ERROR;
-     IBUS_TYPE_TEXT;
-     IBUS_TYPE_ATTRIBUTE;
-     IBUS_TYPE_ATTR_LIST;
-diff --git a/src/ibustypes.h b/src/ibustypes.h
-index 6a31847..8146719 100644
---- a/src/ibustypes.h
-+++ b/src/ibustypes.h
-@@ -177,6 +177,15 @@ typedef enum {
- } IBusBusRequestNameReply;
+ gint
+ main (gint    argc,
+@@ -142,6 +175,7 @@ main (gint    argc,
+     g_test_add_func ("/ibus/enginedesc", test_engine_desc);
+     g_test_add_func ("/ibus/lookuptable", test_lookup_table);
+     g_test_add_func ("/ibus/property", test_property);
++    g_test_add_func ("/ibus/attachment", test_attachment);
  
- /**
-+ * IBusError:
-+ * @IBUS_ERROR_NO_ENGINE:
-+ * There is no engine associated with input context.
-+ */
-+typedef enum {
-+    IBUS_ERROR_NO_ENGINE,
-+} IBusError;
-+
-+/**
-  * IBusRectangle:
-  * @x: x coordinate.
-  * @y: y coordinate.
-diff --git a/src/tests/ibus-gi-inputcontext.py b/src/tests/ibus-gi-inputcontext.py
-new file mode 100755
-index 0000000..80fb97b
---- /dev/null
-+++ b/src/tests/ibus-gi-inputcontext.py
-@@ -0,0 +1,34 @@
-+#!/usr/bin/env python
-+# vim:set et sts=4 sw=4:
-+#
-+# ibus - The Input Bus
-+#
-+# Copyright (c) 2011 Peng Huang <shawn.p.huang@gmail.com>
-+#
-+# This library is free software; you can redistribute it and/or
-+# modify it under the terms of the GNU Lesser General Public
-+# License as published by the Free Software Foundation; either
-+# version 2 of the License, or (at your option) any later version.
-+#
-+# This library is distributed in the hope that it will be useful,
-+# but WITHOUT ANY WARRANTY; without even the implied warranty of
-+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+# GNU Lesser General Public License for more details.
-+#
-+# You should have received a copy of the GNU Lesser General Public
-+# License along with this program; if not, write to the
-+# Free Software Foundation, Inc., 59 Temple Place, Suite 330,
-+# Boston, MA  02111-1307  USA
-+
-+
-+import glib
-+import gio
-+from gi.repository import IBus
-+IBus.init()
-+main = glib.MainLoop()
-+bus = IBus.Bus()
-+ic = bus.create_input_context("ibus-test")
-+ic.get_engine()
-+ic.get_engine()
-+ic.get_engine()
-+ic.get_engine()
--- 
-1.7.4.4
-
-From aec97ac090980dfcd7eeef55c1755f6cd3f87a01 Mon Sep 17 00:00:00 2001
-From: Daiki Ueno <daiki.ueno@gmail.com>
-Date: Sat, 18 Jun 2011 00:03:07 -0400
-Subject: [PATCH] Simplify surrounding-text initialization.
-
-Currently the immodule tries to retrieve surrounding-text unconditionally
-on focus_in and enabled.  These calls could be eliminated if engine were
-able to proclaim that it will need surrounding-text.
-
-This patch extends ibus_engine_get_surrounding_text() to allow this.
-Engines that need surrounding-text are expected to have:
-
-    /* Indicate we will use surrounding-text. */
-    ibus_engine_get_surrounding_text (engine, NULL, NULL);
-
-in their enable() method.  This would work because enable() is called before
-SetCapabilities DBus call.
-
-BUG=none
-TEST=manually with ibus-m17n, with the above change.
-
-Review URL: http://codereview.appspot.com/4613043
-Patch from Daiki Ueno <daiki.ueno@gmail.com>.
----
- client/gtk2/ibusimcontext.c |   23 +++++++++--------------
- src/ibusengine.c            |   10 ++++++----
- src/ibusengine.h            |    9 +++++++--
- 3 files changed, 22 insertions(+), 20 deletions(-)
-
-diff --git a/client/gtk2/ibusimcontext.c b/client/gtk2/ibusimcontext.c
-index ec764ef..a4e7a16 100644
---- a/client/gtk2/ibusimcontext.c
-+++ b/client/gtk2/ibusimcontext.c
-@@ -147,8 +147,7 @@ static gboolean _slave_delete_surroundin
-                                              gint                offset_from_cursor,
-                                              guint               nchars,
-                                              IBusIMContext      *context);
--static void     _request_surrounding_text   (IBusIMContext      *context,
--                                             gboolean            force);
-+static void     _request_surrounding_text   (IBusIMContext      *context);
- static void     _create_fake_input_context  (void);
- 
- 
-@@ -263,17 +262,13 @@ _process_key_event_done (GObject      *o
- /* emit "retrieve-surrounding" glib signal of GtkIMContext, if
-  * context->caps has IBUS_CAP_SURROUNDING_TEXT and the current IBus
-  * engine needs surrounding-text.
-- *
-- * if "force" is TRUE, emit the signal regardless of whether the
-- * engine needs surrounding-text.
-  */
- static void
--_request_surrounding_text (IBusIMContext *context, gboolean force)
-+_request_surrounding_text (IBusIMContext *context)
- {
--    if (context->enable &&
-+    if (context && context->enable &&
-         (context->caps & IBUS_CAP_SURROUNDING_TEXT) != 0 &&
--        (force ||
--         ibus_input_context_needs_surrounding_text (context->ibuscontext))) {
-+        ibus_input_context_needs_surrounding_text (context->ibuscontext)) {
-         gboolean return_value;
-         IDEBUG ("requesting surrounding text");
-         g_signal_emit (context, _signal_retrieve_surrounding_id, 0,
-@@ -368,9 +363,8 @@ _key_snooper_cb (GtkWidget   *widget,
- 
-     } while (0);
- 
--    _request_surrounding_text (ibusimcontext, FALSE);
--
-     if (ibusimcontext != NULL) {
-+        _request_surrounding_text (ibusimcontext);
-         ibusimcontext->time = event->time;
-     }
- 
-@@ -680,7 +674,7 @@ ibus_im_context_filter_keypress (GtkIMCo
-         if (ibusimcontext->client_window == NULL && event->window != NULL)
-             gtk_im_context_set_client_window ((GtkIMContext *)ibusimcontext, event->window);
- 
--        _request_surrounding_text (ibusimcontext, FALSE);
-+        _request_surrounding_text (ibusimcontext);
- 
-         if (ibusimcontext != NULL) {
-             ibusimcontext->time = event->time;
-@@ -763,7 +757,7 @@ ibus_im_context_focus_in (GtkIMContext *
- 
-     /* retrieve the initial surrounding-text (regardless of whether
-      * the current IBus engine needs surrounding-text) */
--    _request_surrounding_text (ibusimcontext, TRUE);
-+    _request_surrounding_text (ibusimcontext);
- 
-     g_object_add_weak_pointer ((GObject *) context,
-                                (gpointer *) &_focus_im_context);
-@@ -1000,7 +996,7 @@ _ibus_context_commit_text_cb (IBusInputC
- 
-     g_signal_emit (ibusimcontext, _signal_commit_id, 0, text->text);
- 
--    _request_surrounding_text (ibusimcontext, FALSE);
-+    _request_surrounding_text (ibusimcontext);
+     return g_test_run ();
  }
- 
- static gboolean
-@@ -1296,7 +1292,7 @@ _ibus_context_show_preedit_text_cb (IBus
-     g_signal_emit (ibusimcontext, _signal_preedit_start_id, 0);
-     g_signal_emit (ibusimcontext, _signal_preedit_changed_id, 0);
- 
--    _request_surrounding_text (ibusimcontext, FALSE);
-+    _request_surrounding_text (ibusimcontext);
- }
- 
- static void
-@@ -1323,7 +1319,7 @@ _ibus_context_enabled_cb (IBusInputConte
- 
-     /* retrieve the initial surrounding-text (regardless of whether
-      * the current IBus engine needs surrounding-text) */
--    _request_surrounding_text (ibusimcontext, TRUE);
-+    _request_surrounding_text (ibusimcontext);
- }
- 
- static void
-diff --git a/src/ibusengine.c b/src/ibusengine.c
-index f545bef..620d07f 100644
---- a/src/ibusengine.c
-+++ b/src/ibusengine.c
-@@ -1382,13 +1382,15 @@ ibus_engine_get_surrounding_text (IBusEngine   *engine,
-     IBusEnginePrivate *priv;
- 
-     g_return_if_fail (IBUS_IS_ENGINE (engine));
--    g_return_if_fail (text != NULL);
--    g_return_if_fail (cursor_pos != NULL);
-+    g_return_if_fail ((text != NULL && cursor_pos != NULL) ||
-+                      (text == NULL && cursor_pos == NULL));
- 
-     priv = IBUS_ENGINE_GET_PRIVATE (engine);
- 
--    *text = g_object_ref (priv->surrounding_text);
--    *cursor_pos = priv->surrounding_cursor_pos;
-+    if (text && cursor_pos) {
-+        *text = g_object_ref (priv->surrounding_text);
-+        *cursor_pos = priv->surrounding_cursor_pos;
-+    }
- 
-     /* tell the client that this engine will utilize surrounding-text
-      * feature, which causes periodical update.  Note that the client
-diff --git a/src/ibusengine.h b/src/ibusengine.h
-index 29b8f1d..6da342a 100644
---- a/src/ibusengine.h
-+++ b/src/ibusengine.h
-@@ -407,11 +407,16 @@ void ibus_engine_delete_surrounding_text(IBusEngine         *engine,
- /**
-  * ibus_engine_get_surrounding_text:
-  * @engine: An IBusEngine.
-- * @text: Location to store surrounding text.
-- * @cursor_pos: Cursor position in characters in @text.
-+ * @text: (allow-none): Location to store surrounding text.
-+ * @cursor_pos: (allow-none): Cursor position in characters in @text.
-  *
-  * Get surrounding text.
-  *
-+ * It is also used to tell the input-context that the engine will
-+ * utilize surrounding-text.  In that case, it must be called in
-+ * #IBusEngine::enable handler, with both @text and @cursor set to
-+ * %NULL.
-+ *
-  * @see_also #IBusEngine::set-surrounding-text
-  */
- void ibus_engine_get_surrounding_text(IBusEngine         *engine,
--- 
-1.7.4.4
-
-From a25187a315e9dfbb36a3e4a4f8e96f18e2cc6e0d Mon Sep 17 00:00:00 2001
-From: fujiwarat <takao.fujiwara1@gmail.com>
-Date: Tue, 5 Jul 2011 12:15:55 +0900
-Subject: [PATCH] Fix SEGV in ibus_keymap_lookup_keysym
-
----
- bus/engineproxy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/bus/engineproxy.c b/bus/engineproxy.c
-index 95e9e0b..a49d6fd 100644
---- a/bus/engineproxy.c
-+++ b/bus/engineproxy.c
-@@ -907,7 +907,7 @@ bus_engine_proxy_process_key_event (BusEngineProxy      *engine,
-         if (keymap == NULL)
-             keymap = BUS_DEFAULT_KEYMAP;
-         if (keymap != NULL) {
--            guint t = ibus_keymap_lookup_keysym (engine->keymap, keycode, state);
-+            guint t = ibus_keymap_lookup_keysym (keymap, keycode, state);
-             if (t != IBUS_VoidSymbol) {
-                 keyval = t;
-             }
 -- 
 1.7.5.4
 
-From 83d4b3ac538320bfb8e872dd9282ca5bbedf4652 Mon Sep 17 00:00:00 2001
+From ac9dfac13cef34288440a2ecdf067cd827fb2f8f Mon Sep 17 00:00:00 2001
 From: Peng Huang <shawn.p.huang@gmail.com>
-Date: Mon, 4 Jul 2011 03:27:23 +0800
-Subject: [PATCH] Fix BusEngineProxy instance leak.
+Date: Fri, 19 Aug 2011 08:23:33 -0400
+Subject: [PATCH] Use GVariant as attachment for IBusSerializable.
 
-BUG=none
-TEST=manually with / without global-engine setting
+BUG=None
+TEST=Linux desktop
 
-Review URL: http://codereview.appspot.com/4662043
+Review URL: http://codereview.appspot.com/4902051
 ---
- bus/engineproxy.c  |    9 ---------
- bus/inputcontext.c |    5 +----
- 2 files changed, 1 insertions(+), 13 deletions(-)
+ src/ibusserializable.c        |  176 ++++++-----------------------------------
+ src/ibusserializable.h        |   81 +++++++++----------
+ src/tests/ibus-serializable.c |   47 ++++++++----
+ 3 files changed, 98 insertions(+), 206 deletions(-)
 
-diff --git a/bus/engineproxy.c b/bus/engineproxy.c
-index f74af12..95e9e0b 100644
---- a/bus/engineproxy.c
-+++ b/bus/engineproxy.c
-@@ -397,15 +397,6 @@ bus_engine_proxy_real_destroy (IBusProxy *proxy)
- {
-     BusEngineProxy *engine = (BusEngineProxy *)proxy;
- 
--    g_dbus_proxy_call ((GDBusProxy *)proxy,
--                       "org.freedesktop.IBus.Service.Destroy",
--                       NULL,
--                       G_DBUS_CALL_FLAGS_NONE,
--                       -1,
--                       NULL,
--                       NULL,
--                       NULL);
--
-     if (engine->desc) {
-         g_object_unref (engine->desc);
-         engine->desc = NULL;
-diff --git a/bus/inputcontext.c b/bus/inputcontext.c
-index 1567c5f..2164e7c 100644
---- a/bus/inputcontext.c
-+++ b/bus/inputcontext.c
-@@ -1020,8 +1020,6 @@ _ic_set_engine (BusInputContext       *context,
-                             NULL,
-                             (GAsyncReadyCallback)_ic_set_engine_done,
-                             invocation);
--
--    g_object_unref (desc);
+diff --git a/src/ibusserializable.c b/src/ibusserializable.c
+index ed89534..6251c89 100644
+--- a/src/ibusserializable.c
++++ b/src/ibusserializable.c
+@@ -124,114 +124,13 @@ ibus_serializable_destroy (IBusSerializable *serializable)
+     parent_class->destroy (IBUS_OBJECT (serializable));
  }
  
+-static GValue *
+-ibus_g_value_dup (const GValue *value)
+-{
+-    GValue *new_value;
+-
+-    new_value = g_slice_new0 (GValue);
+-    g_value_init (new_value, G_VALUE_TYPE (value));
+-    g_value_copy (value, new_value);
+-
+-    return new_value;
+-}
+-
+-static void
+-ibus_g_value_free (GValue *value)
+-{
+-    g_value_unset (value);
+-    g_slice_free (GValue, value);
+-}
+-
+-static GVariant *
+-_g_value_serialize (GValue          *value)
+-{
+-    GType type;
+-
+-    type = G_VALUE_TYPE (value);
+-    g_return_val_if_fail (type != G_TYPE_INVALID, FALSE);
+-
+-    if (g_type_is_a (type, IBUS_TYPE_SERIALIZABLE)) {
+-        IBusSerializable *object;
+-        object = IBUS_SERIALIZABLE (g_value_get_object (value));
+-        return ibus_serializable_serialize (object);
+-    }
+-
+-    typedef const gchar *gstring;
+-    switch (type) {
+-#define CASE_ENTRY(TYPE, _type, signature)                              \
+-    case G_TYPE_##TYPE:                                                 \
+-        {                                                               \
+-            g##_type v;                                                 \
+-            v = g_value_get_##_type (value);                            \
+-            return g_variant_new (signature, v);                        \
+-        }
+-    CASE_ENTRY(CHAR, char, "y");
+-    CASE_ENTRY(BOOLEAN, boolean, "b");
+-    CASE_ENTRY(INT, int, "i");
+-    CASE_ENTRY(UINT, uint, "u");
+-    CASE_ENTRY(INT64, int64,  "x");
+-    CASE_ENTRY(UINT64, uint64, "t");
+-    CASE_ENTRY(FLOAT, float,  "d");
+-    CASE_ENTRY(DOUBLE, double, "d");
+-    CASE_ENTRY(STRING, string, "s");
+-#undef CASE_ENTRY
+-    }
+-
+-    g_assert_not_reached ();
+-}
+-
+-static GValue *
+-_g_value_deserialize (GVariant *variant)
+-{
+-    GValue *value = NULL;
+-    const GVariantType *type;
+-
+-    type = g_variant_get_type (variant);
+-    if (type == G_VARIANT_TYPE_TUPLE) {
+-        IBusSerializable *object;
+-        object = ibus_serializable_deserialize (variant);
+-        value = g_slice_new0 (GValue);
+-        g_value_init (value, G_OBJECT_TYPE (object));
+-        g_value_take_object (value, object);
+-        return value;
+-    }
+-
+-    typedef gchar *gstring;
+-#define IF_ENTRY(TYPE, _type, signature)                      \
+-    if (g_variant_type_equal(type, G_VARIANT_TYPE_##TYPE)) {  \
+-        g##_type v;                                           \
+-        g_variant_get (variant, signature, &v);               \
+-        value = g_slice_new0 (GValue);                        \
+-        g_value_init (value, G_TYPE_##TYPE);                  \
+-        g_value_set_##_type (value, v);                       \
+-        return value;                                         \
+-    }
+-#define G_VARIANT_TYPE_CHAR G_VARIANT_TYPE_BYTE
+-    IF_ENTRY(CHAR, char, "y");
+-#undef G_VARIANT_TYPE_CHAR
+-    IF_ENTRY(BOOLEAN, boolean, "b");
+-#define G_VARIANT_TYPE_INT G_VARIANT_TYPE_INT32
+-#define G_VARIANT_TYPE_UINT G_VARIANT_TYPE_UINT32
+-    IF_ENTRY(INT, int, "i");
+-    IF_ENTRY(UINT, uint, "u");
+-#undef G_VARIANT_TYPE_INT
+-#undef G_VARIANT_TYPE_UINT
+-    IF_ENTRY(INT64, int64, "x");
+-    IF_ENTRY(UINT64, uint64, "t");
+-    IF_ENTRY(DOUBLE, double, "d");
+-    IF_ENTRY(STRING, string, "s");
+-
+-    g_return_val_if_reached (NULL);
+-}
+-
+ static void
+ _serialize_cb (GQuark           key,
+-               GValue          *value,
++               GVariant        *value,
+                GVariantBuilder *array)
+ {
+     g_variant_builder_add (array, "{sv}",
+-                g_quark_to_string (key), _g_value_serialize (value));
++                g_quark_to_string (key), g_variant_new_variant (value));
+ }
+ 
+ static gboolean
+@@ -257,21 +156,26 @@ ibus_serializable_real_deserialize (IBusSerializable *object,
+     GVariantIter *iter = NULL;
+     g_variant_get_child (variant, 1, "a{sv}", &iter);
+     while (g_variant_iter_loop (iter, "{&sv}", &key, &value)) {
+-        ibus_serializable_set_attachment (object, key, _g_value_deserialize (value));
++        GVariant *attachment = g_variant_get_variant (value);
++        ibus_serializable_set_attachment (object,
++                                          key,
++                                          attachment);
++        g_variant_unref (attachment);
++        g_variant_unref (value);
+     }
+     g_variant_iter_free (iter);
+     return 2;
+ }
+ 
+ static void
+-_copy_cb (GQuark   key,
+-          GValue  *value,
+-          GData  **datalist)
++_copy_cb (GQuark     key,
++          GVariant  *value,
++          GData    **datalist)
+ {
+     g_datalist_id_set_data_full (datalist,
+                                  key,
+-                                 ibus_g_value_dup (value),
+-                                 (GDestroyNotify) ibus_g_value_free);
++                                 g_variant_ref (value),
++                                 (GDestroyNotify) g_variant_unref);
+ }
+ 
+ static gboolean
+@@ -289,50 +193,21 @@ ibus_serializable_real_copy (IBusSerializable *dest,
+     return TRUE;
+ }
+ 
+-gboolean
+-ibus_serializable_set_qattachment (IBusSerializable *object,
++void
++ibus_serializable_set_qattachment (IBusSerializable *serializable,
+                                    GQuark            key,
+-                                   const GValue     *value)
++                                   GVariant         *value)
+ {
+-    g_return_val_if_fail (IBUS_IS_SERIALIZABLE (object), FALSE);
+-    g_return_val_if_fail (key != 0, FALSE);
+-    g_return_val_if_fail (G_IS_VALUE (value), FALSE);
+-
+-    IBusSerializablePrivate *priv;
+-    priv = IBUS_SERIALIZABLE_GET_PRIVATE (object);
+-
+-    GType type = G_VALUE_TYPE (value);
+-
+-    switch (type) {
+-    case G_TYPE_CHAR:
+-    case G_TYPE_INT:
+-    case G_TYPE_INT64:
+-    case G_TYPE_UINT:
+-    case G_TYPE_UINT64:
+-    case G_TYPE_BOOLEAN:
+-    case G_TYPE_DOUBLE:
+-    case G_TYPE_FLOAT:
+-    case G_TYPE_STRING:
+-        g_datalist_id_set_data_full (&priv->attachments,
+-                                      key,
+-                                      ibus_g_value_dup (value),
+-                                      (GDestroyNotify) ibus_g_value_free);
+-        return TRUE;
+-    }
+-
+-    if (g_type_is_a (type, IBUS_TYPE_SERIALIZABLE)) {
+-        g_datalist_id_set_data_full (&priv->attachments,
+-                                      key,
+-                                      ibus_g_value_dup (value),
+-                                      (GDestroyNotify) ibus_g_value_free);
+-        return TRUE;
+-    }
++    g_return_if_fail (IBUS_IS_SERIALIZABLE (serializable));
++    g_return_if_fail (key != 0);
+ 
+-    g_warning ("The value of %s is not support serializing", g_type_name (type));
+-    return FALSE;
++    g_datalist_id_set_data_full (&serializable->priv->attachments,
++                                 key,
++                                 value ? g_variant_ref_sink (value) : NULL,
++                                 (GDestroyNotify) g_variant_unref);
+ }
+ 
+-const GValue *
++GVariant *
+ ibus_serializable_get_qattachment (IBusSerializable *serializable,
+                                    GQuark            key)
+ {
+@@ -340,7 +215,8 @@ ibus_serializable_get_qattachment (IBusSerializable *serializable,
+     g_return_val_if_fail (IBUS_IS_SERIALIZABLE (serializable), NULL);
+     g_return_val_if_fail (key != 0, NULL);
+ 
+-    return (const GValue *) g_datalist_id_get_data (&serializable->priv->attachments, key);
++    return (GVariant *) g_datalist_id_get_data (
++            &serializable->priv->attachments, key);
+ }
+ 
+ void
+@@ -351,7 +227,7 @@ ibus_serializable_remove_qattachment (IBusSerializable *serializable,
+     g_return_if_fail (IBUS_IS_SERIALIZABLE (serializable));
+     g_return_if_fail (key != 0);
+ 
+-    g_datalist_id_remove_no_notify (&serializable->priv->attachments, key);
++    g_datalist_id_set_data (&serializable->priv->attachments, key, NULL);
+ }
+ 
+ IBusSerializable *
+diff --git a/src/ibusserializable.h b/src/ibusserializable.h
+index 8fd9f8a..7a100c2 100644
+--- a/src/ibusserializable.h
++++ b/src/ibusserializable.h
+@@ -126,39 +126,40 @@ struct _IBusSerializable {
+ 
  /**
-@@ -2091,7 +2089,6 @@ bus_input_context_enable (BusInputContext *context)
-                             NULL, /* we do not cancel the call. */
-                             NULL, /* use the default callback function. */
-                             NULL);
--            g_object_unref (desc);
-         }
+  * IBusSerializableSerializeFunc:
+- * @object: An IBusSerializable.
+- * @iter: An IBusMessageIter.
+- * @returns: TRUE if succeed; FALSE otherwise.
++ * @serializable: An #IBusSerializable.
++ * @builder: A #GVariantBuilder.
++ * @returns: %TRUE if succeed; %FALSE otherwise.
+  *
+  * Prototype of serialize function.
+  * Serialize function convert an IBusSerializable to IBusMessageIter.
+  * Returns a gboolean value which indicates whether the conversion is success.
+- * Return TRUE if succeed.
++ * Return %TRUE if succeed.
+  */
+-typedef gboolean    (* IBusSerializableSerializeFunc)   (IBusSerializable       *object,
++typedef gboolean    (* IBusSerializableSerializeFunc)   (IBusSerializable       *serializable,
+                                                          GVariantBuilder        *builder);
+ 
+ /**
+  * IBusSerializableDeserializeFunc:
+- * @object: An IBusSerializable.
+- * @iter: An IBusMessageIter.
+- * @returns: TRUE if succeed; FALSE otherwise.
++ * @serializable: An #IBusSerializable.
++ * @variant: A #GVariant contains a tuple.
++ * @returns: The number of values in the variant(tuple) are consumed.
+  *
+  * Prototype of deserialize function.
+  * Deserialize function convert an IBusMessageIter to IBusSerializable.
+- * Returns a gboolean value which indicates whether the conversion is success.
++ * Returns an integer value which indicates how many values in
++ * the variant(tuple) are consumed.
+  */
+-typedef gint        (* IBusSerializableDeserializeFunc) (IBusSerializable       *object,
++typedef gint        (* IBusSerializableDeserializeFunc) (IBusSerializable       *serializable,
+                                                          GVariant               *variant);
+ 
+ /**
+  * IBusSerializableCopyFunc:
+- * @dest: The destination IBusSerializable.
+- * @src: A source IBusMessageIter.
+- * @returns: TRUE if succeed; FALSE otherwise.
++ * @dest: The destination #IBusSerializable.
++ * @src: A source #IBusMessageIter.
++ * @returns: %TRUE if succeed; %FALSE otherwise.
+  *
+  * Prototype of copy function.
+- * Copy function copy from source IBusSerializable to the destination one.
++ * Copy function copy from source #IBusSerializable to the destination one.
+  * Returns a gboolean value which indicates whether the copying is success.
+  */
+ typedef gboolean    (* IBusSerializableCopyFunc)        (IBusSerializable       *dest,
+@@ -188,79 +189,77 @@ GType                ibus_serializable_get_type         (void);
+  *
+  * Returns: a new instance of #IBusSerializable.
+  */
+-IBusSerializable *   ibus_serializable_new              (void);
++IBusSerializable    *ibus_serializable_new              (void);
+ 
+ /**
+  * ibus_serializable_set_qattachment:
+- * @object: An IBusSerializable.
++ * @serializable: An #IBusSerializable.
+  * @key: String formatted key for indexing value.
+- * @value: Value to be attached. Should be also serializable.
+- * @returns: TRUE if succeed; FALSE otherwise.
++ * @value: Value to be attached or %NULL to remove any prevoius value.
+  *
+- * Attach a value to an IBusSerializable. The value should be serializable as well.
+- * Basic type such as integer, string are deemed to be serializable.
++ * Attach a value to an IBusSerializable. If the value is floating,
++ * the serializable will take the ownership.
+  *
+  * @see_also: ibus_serializable_set_attachment().
+  */
+-gboolean             ibus_serializable_set_qattachment  (IBusSerializable   *object,
++void                 ibus_serializable_set_qattachment  (IBusSerializable   *serializable,
+                                                          GQuark              key,
+-                                                         const GValue       *value);
++                                                         GVariant           *value);
+ 
+ /**
+  * ibus_serializable_get_qattachment:
+- * @object: An IBusSerializable.
++ * @serializable: An #IBusSerializable.
+  * @key: String formatted key for indexing value.
+- * @returns: The attached value; or NULL if fail to retrieve the value.
++ * @returns: The attached value; or %NULL if fail to retrieve the value.
+  *
+- * Get a value from attachment of an IBusSerializable.
++ * Get a value from attachment of an #IBusSerializable.
+  * @see_also: ibus_serializable_set_attachment().
+  */
+-const GValue        *ibus_serializable_get_qattachment  (IBusSerializable   *object,
++GVariant            *ibus_serializable_get_qattachment  (IBusSerializable   *serializable,
+                                                          GQuark              key);
+ 
+ /**
+  * ibus_serializable_remove_qattachment:
+- * @object: An IBusSerializable.
++ * @serializable: An #IBusSerializable.
+  * @key: String formatted key for indexing value.
+  *
+- * Remove a value from attachment of an IBusSerializable.
++ * Remove a value from attachment of an #IBusSerializable.
+  * @see_also: ibus_serializable_remove_attachment().
+  */
+ void                 ibus_serializable_remove_qattachment
+-                                                        (IBusSerializable   *object,
++                                                        (IBusSerializable   *serializable,
+                                                          GQuark              key);
+ 
+ /**
+  * ibus_serializable_copy:
+- * @object: An IBusSerializable.
+- * @returns: A newly allocated clone object; or NULL if @object is not serializable.
++ * @serializable: An #IBusSerializable.
++ * @returns: A newly allocated clone object; or %NULL if @object is not serializable.
+  *
+- * Clone an IBusSerializable.
++ * Clone an #IBusSerializable.
+  * The copy method should be implemented in extended class.
+  *
+  * @see_also: IBusSerializableCopyFunc().
+  */
+-IBusSerializable    *ibus_serializable_copy             (IBusSerializable   *object);
++IBusSerializable    *ibus_serializable_copy             (IBusSerializable   *serializable);
+ 
+ /**
+  * ibus_serializable_serialize:
+- * @object: An IBusSerializable.
+- * @iter: An IBusMessageIter.
+- * @returns: TRUE if succeed; FALSE otherwise.
++ * @serializable: An #IBusSerializable.
++ * @returns: A #GVariant.
+  *
+- * Serialize an IBusSerializable to an IBusMessageIter.
++ * Serialize an #IBusSerializable to a #GVariant.
+  * The serialize method should be implemented in extended class.
+  *
+  * @see_also: IBusSerializableCopyFunc().
+  */
+-GVariant            *ibus_serializable_serialize        (IBusSerializable   *object);
++GVariant            *ibus_serializable_serialize        (IBusSerializable   *serializable);
+ 
+ /**
+  * ibus_serializable_deserialize:
+- * @iter: An IBusMessageIter.
+- * @returns: The deserialized IBusSerializable.
++ * @variant: A #GVariant.
++ * @returns: The deserialized #IBusSerializable.
+  *
+- * Deserialize an IBusMessageIter to an IBusSerializable/
++ * Deserialize a #GVariant to an #IBusSerializable/
+  * The deserialize method should be implemented in extended class.
+  *
+  * @see_also: IBusSerializableCopyFunc().
+diff --git a/src/tests/ibus-serializable.c b/src/tests/ibus-serializable.c
+index e2541ec..d2bd61a 100644
+--- a/src/tests/ibus-serializable.c
++++ b/src/tests/ibus-serializable.c
+@@ -12,7 +12,7 @@ void test_serializable (IBusSerializable *object)
+     g_variant_get_data (variant);
+     s1 = g_variant_print (variant, TRUE);
+ 
+-    object = (IBusSerializable *) ibus_serializable_deserialize (variant);
++    object = ibus_serializable_deserialize (variant);
+     g_variant_unref (variant);
+ 
+     variant = ibus_serializable_serialize (object);
+@@ -131,34 +131,51 @@ test_property (void)
+ static void
+ test_attachment (void)
+ {
+-    IBusText *text =  ibus_text_new_from_string ("main text");
++    IBusText *text =  ibus_text_new_from_static_string ("main text");
+ 
+-    GValue value1 = { 0 };
+-    g_value_init(&value1, G_TYPE_INT);
+-    g_value_set_int(&value1, 100);
+-    ibus_serializable_set_attachment ((IBusSerializable *)text, "key1", &value1);
++    ibus_serializable_set_attachment ((IBusSerializable *)text,
++                                      "key1",
++                                      g_variant_new_int32 (100));
+ 
+-    GValue value2 = { 0 };
+-    g_value_init(&value2, G_TYPE_STRING);
+-    g_value_set_string(&value2, "value string");
+-    ibus_serializable_set_attachment ((IBusSerializable *)text, "key2", &value2);
++    ibus_serializable_set_attachment ((IBusSerializable *)text,
++                                      "key2",
++                                      g_variant_new_string ("value string"));
++
++    ibus_serializable_set_attachment ((IBusSerializable *)text,
++                                      "key3",
++                                      g_variant_new ("(iuds)",1, 2, 3.333, "test value"));
+ 
+     GVariant *variant = ibus_serializable_serialize ((IBusSerializable *)text);
+     g_object_unref ((IBusSerializable *)text);
+ 
+-    IBusSerializable *object = (IBusSerializable *) ibus_serializable_deserialize (variant);
++    IBusSerializable *object = ibus_serializable_deserialize (variant);
+     g_variant_unref (variant);
+ 
+     g_assert_cmpstr (((IBusText *)object)->text, ==, "main text");
+ 
+-    const GValue *newvalue1 = ibus_serializable_get_attachment (object, "key1");
++    GVariant *newvalue1 = ibus_serializable_get_attachment (object, "key1");
+     g_assert (newvalue1 != NULL);
+-    g_assert (g_value_get_int (newvalue1) == 100);
++    g_assert_cmpint (g_variant_get_int32 (newvalue1), ==, 100);
+ 
+-    const GValue *newvalue2 = ibus_serializable_get_attachment (object, "key2");
++    GVariant *newvalue2 = ibus_serializable_get_attachment (object, "key2");
+     g_assert (newvalue2 != NULL);
+-    g_assert_cmpstr (g_value_get_string (newvalue2), ==, "value string");
++    g_assert_cmpstr (g_variant_get_string (newvalue2, NULL), ==, "value string");
++
++    {
++        GVariant *newvalue3 = ibus_serializable_get_attachment (object, "key3");
++        g_assert (newvalue3 != NULL);
++        gint32 i;
++        guint32 u;
++        gdouble d;
++        const gchar *s;
++        g_variant_get (newvalue3, "(iud&s)", &i, &u, &d, &s);
++        g_assert_cmpint (i, ==, 1);
++        g_assert_cmpuint (u, ==, 2);
++        g_assert_cmpfloat (d, ==, 3.333);
++        g_assert_cmpstr (s, ==, "test value");
++    }
+ 
++    g_object_unref (object);
+     g_variant_type_info_assert_no_infos ();
+ }
+ 
+-- 
+1.7.5.4
+
+From adcf71e6e5de45530a09e7b9f310f2e489cd9631 Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Wed, 24 Aug 2011 11:44:21 +0900
+Subject: [PATCH] Check if BusInputContext has an enabled engine in global
+ input method.
+
+BUG=RH#731610
+TEST=Linux desktop
+
+Review URL: http://codereview.appspot.com/4917041
+---
+ bus/ibusimpl.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/bus/ibusimpl.c b/bus/ibusimpl.c
+index 853465c..1942504 100644
+--- a/bus/ibusimpl.c
++++ b/bus/ibusimpl.c
+@@ -1176,12 +1176,14 @@ bus_ibus_impl_set_focused_context (BusIBusImpl     *ibus,
      }
  
-@@ -2192,7 +2189,6 @@ bus_input_context_unset_engine (BusInputContext *context)
-         for (i = 0; engine_signals[i].name != NULL; i++) {
-             g_signal_handlers_disconnect_by_func (context->engine, engine_signals[i].callback, context);
+     BusEngineProxy *engine = NULL;
++    gboolean is_enabled = FALSE;
+ 
+     if (ibus->focused_context) {
+         if (ibus->use_global_engine) {
+             /* dettach engine from the focused context */
+             engine = bus_input_context_get_engine (ibus->focused_context);
+             if (engine) {
++                is_enabled = bus_input_context_is_enabled (ibus->focused_context);
+                 g_object_ref (engine);
+                 bus_input_context_set_engine (ibus->focused_context, NULL);
+             }
+@@ -1203,7 +1205,9 @@ bus_ibus_impl_set_focused_context (BusIBusImpl     *ibus,
+         /* attach engine to the focused context */
+         if (engine != NULL) {
+             bus_input_context_set_engine (context, engine);
+-            bus_input_context_enable (context);
++            if (is_enabled) {
++                bus_input_context_enable (context);
++            }
+             g_object_unref (engine);
          }
--        /* Do not destroy the engine anymore, because of global engine feature */
-         g_object_unref (context->engine);
-         context->engine = NULL;
-     }
-@@ -2291,6 +2287,7 @@ new_engine_cb (GObject             *obj,
+ 
+-- 
+1.7.5.4
+
+From 894ecc8e16b01d5594ef9b8f9c5530bb2e9d0502 Mon Sep 17 00:00:00 2001
+From: fujiwarat <takao.fujiwara1@gmail.com>
+Date: Thu, 25 Aug 2011 09:59:42 +0900
+Subject: [PATCH] Add Disable signal when
+ bus_ibus_impl_set_context_engine_from_desc is called.
+
+BUG=#1261
+TEST=Linux desktop
+
+Review URL: http://codereview.appspot.com/4875049
+---
+ bus/inputcontext.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/bus/inputcontext.c b/bus/inputcontext.c
+index 723b5fd..3c81688 100644
+--- a/bus/inputcontext.c
++++ b/bus/inputcontext.c
+@@ -2292,6 +2292,8 @@ new_engine_cb (GObject             *obj,
+                                              "Opertation was cancelled");
          }
          else {
++            /* Let BusEngineProxy call a Disable signal. */
++            bus_input_context_disable (data->context);
              bus_input_context_set_engine (data->context, engine);
-+            g_object_unref (engine);
+             g_object_unref (engine);
              bus_input_context_enable (data->context);
-             g_simple_async_result_set_op_res_gboolean (data->simple, TRUE);
-         }
 -- 
 1.7.5.4
 
