@@ -921,7 +921,7 @@ diff --git a/configure.ac b/configure.ac
 index 4c20ae7..21d35c3 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -462,6 +462,34 @@ else
+@@ -486,6 +486,34 @@
      enable_surrounding_text="no (disabled, use --enable-surrounding-text to enable)"
  fi
  
@@ -953,10 +953,10 @@ index 4c20ae7..21d35c3 100644
 +)
 +AC_SUBST(DEFAULT_BRIDGE_ENGINE_NAME)
 +
- # check iso-codes
+ # Check iso-codes.
  PKG_CHECK_MODULES(ISOCODES, [
      iso-codes
-@@ -488,6 +516,7 @@ bus/Makefile
+@@ -512,6 +540,7 @@
  util/Makefile
  util/IMdkit/Makefile
  data/Makefile
@@ -964,7 +964,7 @@ index 4c20ae7..21d35c3 100644
  data/icons/Makefile
  data/keymaps/Makefile
  data/dconf/Makefile
-@@ -540,5 +569,7 @@ Build options:
+@@ -564,5 +593,7 @@
    No snooper regexes        "$NO_SNOOPER_APPS"
    Panel icon                "$IBUS_ICON_KEYBOARD"
    Enable surrounding-text   $enable_surrounding_text
