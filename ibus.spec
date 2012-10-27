@@ -30,6 +30,7 @@ BuildRequires:	automake >= 1:1.10
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
 BuildRequires:	glib2-devel >= 1:2.26.0
+BuildRequires:	gnome-shell
 BuildRequires:	gobject-introspection-devel >= 0.6.8
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
