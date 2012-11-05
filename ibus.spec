@@ -6,11 +6,15 @@
 %bcond_without	static_libs	# don't build static library
 #
 %define		ibus_gjs_version	3.4.1.20120815
+
+%define		gs_version	%(rpm -q --qf '%{VERSION}' gnome-shell)
+%define		gjs_version	%(rpm -q --qf '%{VERSION}' gjs-devel)
+
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.4.99.20121006
-Release:	0.1
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -25,6 +29,7 @@ Patch2:		%{name}-541492-xkb.patch
 Patch3:		%{name}-530711-preload-sys.patch
 Patch4:		%{name}-xx-setup-frequent-lang.patch
 Patch5:		%{name}-xx-no-use.diff
+Patch6:		%{name}-gjs-fixes.patch
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	autoconf >= 2.62
@@ -203,9 +208,6 @@ API języka Vala do biblioteki ibus.
 
 %prep
 %setup -q
-%if %{with gjsfile}
-zcat %{SOURCE100} | tar xf -
-%endif
 %patch0 -p1
 %patch1 -p1
 %{__rm} bindings/vala/ibus-1.0.vapi
@@ -214,14 +216,15 @@ zcat %{SOURCE100} | tar xf -
 %patch4 -p1
 %patch5 -p1
 
-%build
 %if %{with gjsfile}
+zcat %{SOURCE100} | tar xf -
 d=$(basename %{SOURCE100} .tar.gz)
 cd $d
-%configure
-%{__make}
-cd ..
+%{__rm} js/ui/status/ibus/xkbLayout.js
+%patch6 -p1
 %endif
+
+%build
 %{__libtoolize}
 %{__aclocal} -I m4
 %{__autoconf}
@@ -230,13 +233,11 @@ cd ..
 %configure \
 	--disable-gtk-doc \
 	--disable-silent-rules \
-	--enable-bridge-hotkey \
 	--enable-gconf \
 	--enable-dconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
-	--enable-python \
 	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
@@ -250,6 +251,18 @@ cd ..
 %{__make} -C ui/gtk3 maintainer-clean-generic
 
 %{__make}
+
+%if %{with gjsfile}
+d=$(basename %{SOURCE100} .tar.gz)
+cd $d
+export PKG_CONFIG_PATH=..:%{_pkgconfigdir}
+%configure \
+	--with-gnome-shell-version="%{gs_version},3.6,3.4,3.2" \
+	--with-gjs-version="%{gjs_version},1.33.3,1.32,1.31.22,1.31.20,1.31.10,1.31.6,1.31.11,1.30"
+
+%{__make}
+cd ..
+%endif
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -289,9 +302,11 @@ rm -rf $RPM_BUILD_ROOT
 %post
 %update_icon_cache hicolor
 %gconf_schema_install ibus.schemas
+%glib_compile_schemas
 
 %preun
 %gconf_schema_uninstall ibus.schemas
+%glib_compile_schemas
 
 %postun
 %update_icon_cache hicolor

@@ -1,0 +1,59 @@
+diff -ur ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/ibusPanel.js ibus-gjs-3.4.1.20120815/js/ui/status/ibus/ibusPanel.js
+--- ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/ibusPanel.js	2012-08-15 11:06:54.000000000 +0200
++++ ibus-gjs-3.4.1.20120815/js/ui/status/ibus/ibusPanel.js	2012-11-05 23:50:06.086089865 +0100
+@@ -954,8 +954,11 @@
+     },
+ 
+     _configLoadLookupTableOrientation: function() {
+-        let value = this._config.get_value('panel', 'lookup_table_orientation',
+-                                           GLib.Variant.new_int32(0)).get_int32();
++        let _value = this._config.get_value('panel', 'lookup_table_orientation',
++                                           GLib.Variant.new_int32(0));
++        let value = 0;
++        if (_value != null)
++                value = _value.get_int32();
+         let orientation = Common.ORIENTATION_VERTICAL;
+         if (value in [Common.ORIENTATION_HORIZONTAL,
+                       Common.ORIENTATION_VERTICAL])
+diff -ur ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/panelMenu.js ibus-gjs-3.4.1.20120815/js/ui/status/ibus/panelMenu.js
+--- ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/panelMenu.js	2012-08-15 11:06:54.000000000 +0200
++++ ibus-gjs-3.4.1.20120815/js/ui/status/ibus/panelMenu.js	2012-11-05 23:50:06.086089865 +0100
+@@ -66,7 +66,6 @@
+         this._clearActor();
+         this._iconName = iconName;
+         this._iconActor = new St.Icon({ icon_name: iconName,
+-                                        icon_type: St.IconType.SYMBOLIC,
+                                         style_class: 'system-status-icon' });
+         this.actor.add_child(this._iconActor);
+         this.actor.queue_redraw();
+diff -ur ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/switcher.js ibus-gjs-3.4.1.20120815/js/ui/status/ibus/switcher.js
+--- ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/switcher.js	2012-08-15 11:06:54.000000000 +0200
++++ ibus-gjs-3.4.1.20120815/js/ui/status/ibus/switcher.js	2012-11-05 23:50:06.086089865 +0100
+@@ -713,8 +713,7 @@
+                 icon.clutter_text.set_font_description(desc);
+             }));
+         } else {
+-            icon = new St.Icon({ icon_name: engine.icon,
+-                                 icon_type: St.IconType.SYMBOLIC });
++            icon = new St.Icon({ icon_name: engine.icon });
+         }
+         if (icon != null) {
+             this._iconBin.child = icon
+diff -ur ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/xkbLayout.js.in ibus-gjs-3.4.1.20120815/js/ui/status/ibus/xkbLayout.js.in
+--- ibus-gjs-3.4.1.20120815.orig/js/ui/status/ibus/xkbLayout.js.in	2012-08-15 11:07:22.000000000 +0200
++++ ibus-gjs-3.4.1.20120815/js/ui/status/ibus/xkbLayout.js.in	2012-11-05 23:50:06.086089865 +0100
+@@ -68,10 +68,12 @@
+                     value.get_child_value(i).dup_string()[0]);
+             }
+             if (this._useXmodmap) {
+-                this._useXmodmap = this._config.get_value(
++                let _value = this._config.get_value(
+                     'general',
+                     'use_xmodmap',
+-                    GLib.Variant.new_boolean(true)).get_boolean();
++                    GLib.Variant.new_boolean(true));
++                if (_value != null)
++                    this._useXmodmap = _value.get_boolean();
+             }
+         }
+     },
