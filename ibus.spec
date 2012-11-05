@@ -9,26 +9,31 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.4.2
-Release:	3
+Version:	1.4.99.20121006
+Release:	0.1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	4cc29edea599d465e1ee53c39da27a57
+# Source0-md5:	28b26c84f021a0c15023d6326d4ad58e
 Source1:	%{name}.xinputd
 Source100:	http://fujiwara.fedorapeople.org/ibus/gnome-shell/%{name}-gjs-%{ibus_gjs_version}.tar.gz
 # Source100-md5:	8acf4ac4d1a7dfb9a0af9e755a8e7dba
-Patch0:		%{name}-530711-preload-sys.patch
-Patch1:		%{name}-541492-xkb.patch
-Patch2:		%{name}-xx-bridge-hotkey.patch
-Patch3:		%{name}-xx-setup-frequent-lang.patch
+Patch0:		%{name}-HEAD.patch
+Patch1:		%{name}-810211-no-switch-by-no-trigger.patch
+Patch2:		%{name}-541492-xkb.patch
+Patch3:		%{name}-530711-preload-sys.patch
+Patch4:		%{name}-xx-setup-frequent-lang.patch
+Patch5:		%{name}-xx-no-use.diff
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.10
+BuildRequires:	dconf-devel
+BuildRequires:	dbus-glib-devel
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
+BuildRequires:	gjs-devel
 BuildRequires:	glib2-devel >= 1:2.26.0
 BuildRequires:	gnome-shell
 BuildRequires:	gobject-introspection-devel >= 0.6.8
@@ -38,11 +43,13 @@ BuildRequires:	gtk-doc >= 1.9
 BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
 BuildRequires:	libtool
+BuildRequires:	libgnomekbd-devel
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject-devel
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.596
+BuildRequires:	vala
 BuildRequires:	xorg-lib-libX11-devel
 BuildRequires:	xorg-lib-libxkbfile-devel
 Requires:	%{name}-libs = %{version}-%{release}
@@ -199,12 +206,13 @@ API języka Vala do biblioteki ibus.
 %if %{with gjsfile}
 zcat %{SOURCE100} | tar xf -
 %endif
-cp -p client/gtk2/ibusimcontext.c client/gtk3/ibusimcontext.c
 %patch0 -p1
 %patch1 -p1
-mv data/ibus.schemas.in data/ibus.schemas.in.in
+%{__rm} bindings/vala/ibus-1.0.vapi
 %patch2 -p1
 %patch3 -p1
+%patch4 -p1
+%patch5 -p1
 
 %build
 %if %{with gjsfile}
@@ -224,17 +232,22 @@ cd ..
 	--disable-silent-rules \
 	--enable-bridge-hotkey \
 	--enable-gconf \
+	--enable-dconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
 	--enable-python \
+	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
 	--enable-vala \
 	--enable-xim \
 	--enable-xkb \
+	--enable-libgnomekbd \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*'
+
+%{__make} -C ui/gtk3 maintainer-clean-generic
 
 %{__make}
 
@@ -318,16 +331,23 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(644,root,root,755)
 %doc AUTHORS README
 %config(noreplace) %verify(not md5 mtime size) /etc/X11/xinit/xinput.d/ibus.conf
+%dir %{_sysconfdir}/dconf/db/ibus.d
+%{_sysconfdir}/dconf/db/ibus.d/00-upstream-settings
+%{_sysconfdir}/dconf/profile/ibus
 %{_sysconfdir}/gconf/schemas/ibus.schemas
+%attr(755,root,root) %{_bindir}/ibus
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
 %dir %{_libexecdir}
+%attr(755,root,root) %{_libexecdir}/ibus-dconf
+%attr(755,root,root) %{_libexecdir}/ibus-engine-simple
 %attr(755,root,root) %{_libexecdir}/ibus-gconf
-%attr(755,root,root) %{_libexecdir}/ibus-ui-gtk
+%attr(755,root,root) %{_libexecdir}/ibus-ui-gtk3
 %attr(755,root,root) %{_libexecdir}/ibus-x11
-%attr(755,root,root) %{_libexecdir}/ibus-engine-xkb
 %attr(755,root,root) %{_libexecdir}/ibus-xkb
 %{_datadir}/ibus
+%{_datadir}/GConf/gsettings/ibus.convert
+%{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
 %{_desktopdir}/ibus-setup.desktop
 %{_iconsdir}/hicolor/*/apps/ibus-*.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
@@ -335,7 +355,7 @@ rm -rf $RPM_BUILD_ROOT
 %files libs
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libibus-1.0.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libibus-1.0.so.0
+%attr(755,root,root) %ghost %{_libdir}/libibus-1.0.so.5
 %{_libdir}/girepository-1.0/IBus-1.0.typelib
 
 %files gtk2
