@@ -2,14 +2,8 @@
 # - clean .py in %{_datadir}/{setup,ui/gtk} if possible
 #
 # Conditional build:
-%bcond_without	gjsfile		# https://bugzilla.redhat.com/show_bug.cgi?id=657165
 %bcond_without	static_libs	# don't build static library
 #
-%define		ibus_gjs_version	3.4.1.20120815
-
-%define		gs_version	%(rpm -q --qf '%{VERSION}' gnome-shell)
-%define		gjs_version	%(rpm -q --qf '%{VERSION}' gjs-devel)
-
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
@@ -21,15 +15,12 @@ Group:		Libraries
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
 # Source0-md5:	28b26c84f021a0c15023d6326d4ad58e
 Source1:	%{name}.xinputd
-Source100:	http://fujiwara.fedorapeople.org/ibus/gnome-shell/%{name}-gjs-%{ibus_gjs_version}.tar.gz
-# Source100-md5:	8acf4ac4d1a7dfb9a0af9e755a8e7dba
 Patch0:		%{name}-HEAD.patch
 Patch1:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch2:		%{name}-541492-xkb.patch
 Patch3:		%{name}-530711-preload-sys.patch
 Patch4:		%{name}-xx-setup-frequent-lang.patch
 Patch5:		%{name}-xx-no-use.diff
-Patch6:		%{name}-gjs-fixes.patch
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	autoconf >= 2.62
@@ -38,9 +29,7 @@ BuildRequires:	dconf-devel
 BuildRequires:	dbus-glib-devel
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
-BuildRequires:	gjs-devel
 BuildRequires:	glib2-devel >= 1:2.26.0
-BuildRequires:	gnome-shell
 BuildRequires:	gobject-introspection-devel >= 0.6.8
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
@@ -122,23 +111,6 @@ This package contains IBus im module for GTK+ 3.x.
 %description gtk3 -l pl.UTF-8
 Ten pakiet zawiera moduł im IBus dla GTK+ 3.x.
 
-%package gnome3
-Summary:	IBus gnome-shell-extension for GNOME3
-Summary(pl.UTF-8):	Rozszerzenie gnome-shell IBus dla GNOME3
-Group:		Libraries
-Requires:	%{name} = %{version}-%{release}
-Requires:	gnome-shell
-
-%description gnome3
-This is a transitional package which allows users to try out new IBus
-GUI for GNOME3 in development. Note that this package will be marked
-as obsolete once the integration has completed in the GNOME3 upstream.
-
-%description gnome3 -l pl.UTF-8
-Pakiet przejściowy pozwalający użytkownikom wypróbować nowe GUI IBus
-dla GNOME3 w trakcie tworzenia. Uwaga: ten pakiet zostanie oznaczony
-jako przestarzały po zakończeniu integracji w GNOME3.
-
 %package devel
 Summary:	Development files for IBus
 Summary(pl.UTF-8):	Pliki programistyczne IBus
@@ -206,6 +178,18 @@ Vala API for ibus library.
 %description -n vala-ibus -l pl.UTF-8
 API języka Vala do biblioteki ibus.
 
+%package -n bash-completion-ibus
+Summary:	Bash completion for ibus commands
+Summary(pl.UTF-8):	Bashowe dopełnianie parametrów dla poleceń ibus
+Group:		Applications/Shells
+Requires:	bash-completion
+
+%description -n bash-completion-ibus
+Bash completion for ibus commands.
+
+%description -n bash-completion-ibus -l pl.UTF-8
+Bashowe dopełnianie parametrów dla poleceń ibus.
+
 %prep
 %setup -q
 %patch0 -p1
@@ -215,14 +199,6 @@ API języka Vala do biblioteki ibus.
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
-
-%if %{with gjsfile}
-zcat %{SOURCE100} | tar xf -
-d=$(basename %{SOURCE100} .tar.gz)
-cd $d
-%{__rm} js/ui/status/ibus/xkbLayout.js
-%patch6 -p1
-%endif
 
 %build
 %{__libtoolize}
@@ -252,18 +228,6 @@ cd $d
 
 %{__make}
 
-%if %{with gjsfile}
-d=$(basename %{SOURCE100} .tar.gz)
-cd $d
-export PKG_CONFIG_PATH=..:%{_pkgconfigdir}
-%configure \
-	--with-gnome-shell-version="%{gs_version},3.6,3.4,3.2" \
-	--with-gjs-version="%{gjs_version},1.33.3,1.32,1.31.22,1.31.20,1.31.10,1.31.6,1.31.11,1.30"
-
-%{__make}
-cd ..
-%endif
-
 %install
 rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/{X11/xinit/xinput.d,xdg/autostart}
@@ -275,13 +239,6 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}/{X11/xinit/xinput.d,xdg/autostart}
 
 # correct location in upstream.
 mv $RPM_BUILD_ROOT{%{_desktopdir},%{_sysconfdir}/xdg/autostart}/ibus.desktop
-
-%if %{with gjsfile}
-d=$(basename %{SOURCE100} .tar.gz)
-%{__make} -C $d install \
-	DESTDIR=$RPM_BUILD_ROOT
-%{__rm} $RPM_BUILD_ROOT%{_localedir}/*/LC_MESSAGES/ibus-gjs.mo
-%endif
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/gtk*/*/immodules/*.la
@@ -381,11 +338,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/gtk-3.0/*/immodules/im-ibus.so
 
-%files gnome3
-%defattr(644,root,root,755)
-%{_datadir}/gnome-shell/js/ui/status/ibus
-%{_datadir}/gnome-shell/extensions/ibus-indicator@example.com
-
 %files devel
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libibus-1.0.so
@@ -414,3 +366,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(644,root,root,755)
 %{_datadir}/vala/vapi/ibus-1.0.vapi
 %{_datadir}/vala/vapi/ibus-1.0.deps
+
+%files -n bash-completion-ibus
+%defattr(644,root,root,755)
+/etc/bash_completion.d/ibus.bash
