@@ -3,6 +3,7 @@
 #
 # Conditional build:
 %bcond_without	static_libs	# don't build static library
+%bcond_without	vala		# Vala API
 #
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
@@ -23,9 +24,11 @@ Patch4:		%{name}-xx-setup-frequent-lang.patch
 Patch5:		%{name}-xx-no-use.diff
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
+BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.10
-BuildRequires:	dconf-devel
+BuildRequires:	dconf-devel >= 0.7.5
+BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
@@ -38,12 +41,13 @@ BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
 BuildRequires:	libtool
 BuildRequires:	libgnomekbd-devel
+BuildRequires:	pkgconfig
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject-devel
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.596
-BuildRequires:	vala
+%{?with_vala:BuildRequires:	vala >= 2:0.14}
 BuildRequires:	xorg-lib-libX11-devel
 BuildRequires:	xorg-lib-libxkbfile-devel
 Requires:	%{name}-libs = %{version}-%{release}
@@ -170,7 +174,7 @@ Summary:	Vala API for ibus library
 Summary(pl.UTF-8):	API języka Vala do biblioteki ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	vala
+Requires:	vala >= 2:0.14
 
 %description -n vala-ibus
 Vala API for ibus library.
@@ -217,7 +221,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
-	--enable-vala \
+	--enable-vala%{!?with_vala:=no} \
 	--enable-xim \
 	--enable-xkb \
 	--enable-libgnomekbd \
@@ -362,10 +366,12 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{py_sitescriptdir}/ibus/interface
 %{py_sitescriptdir}/ibus/interface/*.py[co]
 
+%if %{with vala}
 %files -n vala-ibus
 %defattr(644,root,root,755)
 %{_datadir}/vala/vapi/ibus-1.0.vapi
 %{_datadir}/vala/vapi/ibus-1.0.deps
+%endif
 
 %files -n bash-completion-ibus
 %defattr(644,root,root,755)
