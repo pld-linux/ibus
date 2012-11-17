@@ -8,20 +8,19 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.4.99.20121006
+Version:	1.4.99.20121109
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	28b26c84f021a0c15023d6326d4ad58e
+# Source0-md5:	be482479357210283e91a47f43a0a0fe
 Source1:	%{name}.xinputd
-Patch0:		%{name}-HEAD.patch
-Patch1:		%{name}-810211-no-switch-by-no-trigger.patch
-Patch2:		%{name}-541492-xkb.patch
-Patch3:		%{name}-530711-preload-sys.patch
-Patch4:		%{name}-xx-setup-frequent-lang.patch
-Patch5:		%{name}-xx-no-use.diff
+Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
+Patch1:		%{name}-541492-xkb.patch
+Patch2:		%{name}-530711-preload-sys.patch
+Patch3:		%{name}-xx-setup-frequent-lang.patch
+Patch4:		%{name}-xx-no-use.diff
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
@@ -197,12 +196,11 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %prep
 %setup -q
 %patch0 -p1
-%patch1 -p1
 %{__rm} bindings/vala/ibus-1.0.vapi
+%patch1 -p1
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%patch5 -p1
 
 %build
 %{__libtoolize}
