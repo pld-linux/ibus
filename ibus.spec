@@ -4,23 +4,23 @@
 # Conditional build:
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
+%bcond_without	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
 #
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.4.99.20121109
+Version:	1.5.1
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	be482479357210283e91a47f43a0a0fe
+# Source0-md5:	f0103201249c657712f5f4d9a36923ed
 Source1:	%{name}.xinputd
 Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch1:		%{name}-541492-xkb.patch
 Patch2:		%{name}-530711-preload-sys.patch
 Patch3:		%{name}-xx-setup-frequent-lang.patch
-Patch4:		%{name}-xx-no-use.diff
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
@@ -196,11 +196,11 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %prep
 %setup -q
 %patch0 -p1
-%{__rm} bindings/vala/ibus-1.0.vapi
+%if %{with ibus_xkb}
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
-%patch4 -p1
+%endif
 
 %build
 %{__libtoolize}
@@ -216,15 +216,15 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
+	%{?with_ibus_xkb:--enable-libgnomekbd} \
 	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
 	--enable-vala%{!?with_vala:=no} \
 	--enable-xim \
-	--enable-xkb \
-	--enable-libgnomekbd \
 	--with-html-dir=%{_gtkdocdir} \
-	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*'
+	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
+	%{?with_ibus_xkb:--with-xkb-command=ibus-xkb}
 
 %{__make} -C ui/gtk3 maintainer-clean-generic
 
@@ -318,7 +318,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libexecdir}/ibus-gconf
 %attr(755,root,root) %{_libexecdir}/ibus-ui-gtk3
 %attr(755,root,root) %{_libexecdir}/ibus-x11
+%if %{with ibus_xkb}
 %attr(755,root,root) %{_libexecdir}/ibus-xkb
+%endif
 %{_datadir}/ibus
 %{_datadir}/GConf/gsettings/ibus.convert
 %{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
@@ -363,6 +365,7 @@ rm -rf $RPM_BUILD_ROOT
 %{py_sitescriptdir}/ibus/*.py[co]
 %dir %{py_sitescriptdir}/ibus/interface
 %{py_sitescriptdir}/ibus/interface/*.py[co]
+%{py_sitedir}/gi/overrides/IBus.py[co]
 
 %if %{with vala}
 %files -n vala-ibus

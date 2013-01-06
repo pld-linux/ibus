@@ -1,37 +1,34 @@
-From 15a9eb2a8f9a278b5e357d7dd7ffebedd05d0c5e Mon Sep 17 00:00:00 2001
+From 965f09a94744b6374656247ff091eb91b5bad0b2 Mon Sep 17 00:00:00 2001
 From: fujiwarat <takao.fujiwara1@gmail.com>
-Date: Tue, 9 Oct 2012 17:21:01 +0900
+Date: Mon, 10 Dec 2012 16:24:34 +0900
 Subject: [PATCH] Add ibus-xkb and libgnomekbd.
 
 ---
- bindings/vala/Gkbd-3.0.metadata |    1 +
- bindings/vala/Makefile.am       |   23 ++
- bindings/vala/Xkl-1.0.metadata  |    3 +
- client/x11/gdk-private.c        |    3 +-
- configure.ac                    |   60 +++++
- data/ibus.schemas.in            |   94 +++++++
- engine/Makefile.am              |    6 +
- engine/ibus-xkb/Makefile.am     |   64 +++++
- engine/ibus-xkb/ibus-xkb-main.c |  111 ++++++++
- engine/ibus-xkb/xkblib.c        |  327 ++++++++++++++++++++++++
- engine/ibus-xkb/xkblib.h        |   41 +++
- engine/main.vala                |   86 +++++++
- engine/simple.xml.in.in         |  531 +--------------------------------------
- ibus-1.0.pc.in                  |    4 +
- ibus.spec.in                    |   12 +
- setup/main.py                   |   38 ++-
- src/Makefile.am                 |    5 +
- src/ibus.h                      |    1 +
- src/ibusxkbxml.c                |  466 ++++++++++++++++++++++++++++++++++
- src/ibusxkbxml.h                |  187 ++++++++++++++
- ui/gtk3/Makefile.am             |   39 +++
- ui/gtk3/gkbdlayout.vala.false   |   63 +++++
- ui/gtk3/gkbdlayout.vala.true    |  108 ++++++++
- ui/gtk3/keybindingmanager.vala  |   14 +-
- ui/gtk3/panel.vala              |  365 +++++++++++++++++++++++----
- ui/gtk3/switcher.vala           |   49 ++--
- ui/gtk3/xkblayout.vala          |  464 ++++++++++++++++++++++++++++++++++
- 27 files changed, 2562 insertions(+), 603 deletions(-)
+ bindings/vala/Gkbd-3.0.metadata |   1 +
+ bindings/vala/Makefile.am       |  23 ++
+ bindings/vala/Xkl-1.0.metadata  |   3 +
+ configure.ac                    |  68 +++++
+ data/ibus.schemas.in            |  94 +++++++
+ engine/Makefile.am              |   6 +
+ engine/ibus-xkb/Makefile.am     |  61 ++++
+ engine/ibus-xkb/ibus-xkb-main.c | 173 ++++++++++++
+ engine/ibus-xkb/xkblib.c        | 327 ++++++++++++++++++++++
+ engine/ibus-xkb/xkblib.h        |  41 +++
+ engine/main.vala                |  86 ++++++
+ engine/simple.xml.in.in         | 605 +---------------------------------------
+ ibus-1.0.pc.in                  |   4 +
+ ibus.spec.in                    |  12 +
+ setup/main.py                   |  38 ++-
+ src/Makefile.am                 |   5 +
+ src/ibus.h                      |   1 +
+ src/ibusxkbxml.c                | 466 +++++++++++++++++++++++++++++++
+ src/ibusxkbxml.h                | 187 +++++++++++++
+ ui/gtk3/Makefile.am             |  37 +++
+ ui/gtk3/gkbdlayout.vala.false   |  63 +++++
+ ui/gtk3/gkbdlayout.vala.true    | 108 +++++++
+ ui/gtk3/panel.vala              | 362 ++++++++++++++++++++++--
+ ui/gtk3/xkblayout.vala          | 465 ++++++++++++++++++++++++++++++
+ 24 files changed, 2597 insertions(+), 639 deletions(-)
  create mode 100644 bindings/vala/Gkbd-3.0.metadata
  create mode 100644 bindings/vala/Xkl-1.0.metadata
  create mode 100644 engine/ibus-xkb/Makefile.am
@@ -55,32 +52,26 @@ diff --git a/bindings/vala/Makefile.am b/bindings/vala/Makefile.am
 index abcc543..307a161 100644
 --- a/bindings/vala/Makefile.am
 +++ b/bindings/vala/Makefile.am
-@@ -27,12 +27,22 @@ dist_vapi_DATA = \
- 	$(NULL)
+@@ -22,9 +22,16 @@
  
- # Don't rebuild vapi every time gir is updated.
+ -include $(VAPIGEN_MAKEFILE)
+ 
 +if ENABLE_LIBGNOMEKBD
- vapi_deps = \
- 	$(srcdir)/IBus-1.0.metadata \
- 	$(srcdir)/IBus-1.0-custom.vala \
- 	| \
-+	$(builddir)/gkbd.vapi \
- 	$(top_srcdir)/src/IBus-@IBUS_API_VERSION@.gir \
- 	$(NULL)
++kbd_dep = $(builddir)/gkbd.vapi
 +else
-+vapi_deps = \
-+	$(srcdir)/IBus-1.0.metadata \
-+	$(srcdir)/IBus-1.0-custom.vala \
-+	| \
-+	$(top_srcdir)/src/IBus-@IBUS_API_VERSION@.gir \
-+	$(NULL)
++kbd_dep =
 +endif
++
+ vapi_deps = \
+ 	IBus-1.0.metadata \
+ 	IBus-1.0-custom.vala \
++	$(kbd_dep) \
+ 	$(top_builddir)/src/IBus-1.0.gir \
+ 	$(NULL)
  
- ibus-@IBUS_API_VERSION@.vapi: $(vapi_deps)
- 	$(AM_V_GEN) $(VAPIGEN) --library ibus-@IBUS_API_VERSION@ \
-@@ -41,13 +51,26 @@ ibus-@IBUS_API_VERSION@.vapi: $(vapi_deps)
- 			$(top_srcdir)/src/IBus-@IBUS_API_VERSION@.gir \
- 			$(srcdir)/IBus-1.0-custom.vala
+@@ -42,12 +49,25 @@
+ vapidir = $(datadir)/vala/vapi
+ vapi_DATA = $(VAPIGEN_VAPIS) $(VAPIGEN_VAPIS:.vapi=.deps)
  
 +if ENABLE_LIBGNOMEKBD
 +$(builddir)/gkbd.vapi:
@@ -95,6 +86,7 @@ index abcc543..307a161 100644
 +	Gkbd-3.0.metadata \
  	IBus-1.0.metadata \
  	IBus-1.0-custom.vala \
+ 	ibus-1.0.deps \
  	config.vapi \
  	xi.vapi \
 +	Xkl-1.0.metadata \
@@ -102,8 +94,6 @@ index abcc543..307a161 100644
  
 +CLEANFILES = gkbd.vapi
 +
- MAINTAINERCLEANFILES = ibus-@IBUS_API_VERSION@.vapi
- 
  -include $(top_srcdir)/git.mk
 diff --git a/bindings/vala/Xkl-1.0.metadata b/bindings/vala/Xkl-1.0.metadata
 new file mode 100644
@@ -114,37 +104,32 @@ index 0000000..4961d0c
 +Xkl cheader_filename="libxklavier/xklavier.h"
 +Engine
 +    .filter_events.evt ref type="X.Event"
-diff --git a/client/x11/gdk-private.c b/client/x11/gdk-private.c
-index 009a5b0..20689c3 100644
---- a/client/x11/gdk-private.c
-+++ b/client/x11/gdk-private.c
-@@ -27,8 +27,7 @@
- #include <gdk/gdkx.h>
- #include <gdk/gdkkeysyms.h>
- 
--#ifdef HAVE_X11_XKBLIB_H
--#  define HAVE_XKB
-+#ifdef HAVE_XKB
- #  include <X11/XKBlib.h>
- #endif
- 
 diff --git a/configure.ac b/configure.ac
-index cc7d0e0..df0d4a7 100644
+index cc7d0e0..246b3fc 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -252,6 +252,63 @@ else
+@@ -252,6 +252,71 @@ else
      enable_xim="no (disabled, use --enable-xim to enable)"
  fi
  
-+# --enable-xkb option.
-+AC_ARG_ENABLE(xkb,
-+    AS_HELP_STRING([--enable-xkb],
-+                   [Build xkb]),
-+    [enable_xkb=$enableval],
-+    [enable_xkb=no]
++# Option for XKB command.
++AC_ARG_WITH(xkb-command,
++    AS_HELP_STRING([--with-xkb-command[=XKB_COMMAND]],
++        [Use XKB_COMMAND to set keymap. ibus-xkb is available. (default is setxkbmap)]),
++    XKB_COMMAND=$with_xkb_command,
++    XKB_COMMAND=setxkbmap
 +)
-+AM_CONDITIONAL([ENABLE_XKB], [test x"$enable_xkb" = x"yes"])
-+if test x"$enable_xkb" = x"yes"; then
++AC_DEFINE_UNQUOTED(XKB_COMMAND, "$XKB_COMMAND",
++                   [xkb command line to set xkb keymaps.])
++
++if test x"$XKB_COMMAND" = x"ibus-xkb"; then
++    enable_ibus_xkb=yes
++else
++    enable_ibus_xkb=no
++fi
++
++AM_CONDITIONAL([ENABLE_IBUS_XKB], [test x"$enable_ibus_xkb" = x"yes"])
++if test x"$enable_ibus_xkb" = x"yes"; then
 +    PKG_CHECK_MODULES(X11, [
 +        x11
 +    ])
@@ -152,10 +137,9 @@ index cc7d0e0..df0d4a7 100644
 +        [xkbfile],,
 +        [XKB_LIBS="-lxkbfile"]
 +    )
-+    AC_DEFINE(HAVE_XKB, 1, [define to 1 if you have xkbfile])
++    AC_DEFINE(HAVE_IBUS_XKB, 1, [define to 1 if you have xkbfile])
 +    HAVE_IBUS_XKB=true
 +else
-+    enable_xkb="no (disabled, use --enable-xkb to enable)"
 +    HAVE_IBUS_XKB=false
 +fi
 +AC_SUBST(HAVE_IBUS_XKB)
@@ -196,7 +180,7 @@ index cc7d0e0..df0d4a7 100644
  # GObject introspection
  GOBJECT_INTROSPECTION_CHECK([0.6.8])
  
-@@ -517,6 +574,7 @@ src/ibusversion.h
+@@ -517,6 +582,7 @@ src/ibusversion.h
  src/tests/Makefile
  bus/Makefile
  engine/Makefile
@@ -204,19 +188,20 @@ index cc7d0e0..df0d4a7 100644
  engine/simple.xml.in
  util/Makefile
  util/IMdkit/Makefile
-@@ -577,5 +635,7 @@ Build options:
+@@ -576,6 +642,8 @@ Build options:
+   No snooper regexes        "$NO_SNOOPER_APPS"
    Panel icon                "$IBUS_ICON_KEYBOARD"
    Enable surrounding-text   $enable_surrounding_text
-   Run test cases            $enable_tests
-+  Build XKB                 $enable_xkb
++  XKB command               $XKB_COMMAND
 +  Build libgnomebkd         $enable_libgnomekbd
+   Run test cases            $enable_tests
  ])
  
 diff --git a/data/ibus.schemas.in b/data/ibus.schemas.in
-index 53ba05c..07169ae 100644
+index a8c7d7f..1a0e2d2 100644
 --- a/data/ibus.schemas.in
 +++ b/data/ibus.schemas.in
-@@ -26,6 +26,52 @@
+@@ -42,6 +42,52 @@
        </locale>
      </schema>
      <schema>
@@ -269,38 +254,10 @@ index 53ba05c..07169ae 100644
        <key>/schemas/desktop/ibus/general/hotkey/trigger</key>
        <applyto>/desktop/ibus/general/hotkey/trigger</applyto>
        <owner>ibus</owner>
-@@ -34,6 +80,54 @@
-       <default>[Control+space,Zenkaku_Hankaku,Alt+Kanji,Alt+grave,Hangul,Alt+Release+Alt_R]</default>
-       <locale name="C">
-         <short>Trigger shortcut keys</short>
-+            <long>The shortcut keys for turning input method on or off</long>
-+      </locale>
-+    </schema>
-+    <schema>
-+      <key>/schemas/desktop/ibus/general/hotkey/trigger_accel</key>
-+      <applyto>/desktop/ibus/general/hotkey/trigger_accel</applyto>
-+      <owner>ibus</owner>
-+      <type>list</type>
-+      <list_type>string</list_type>
-+      <default>[&lt;Control&gt;space]</default>
-+      <locale name="C">
-+        <short>Trigger shortcut keys for gtk_accelerator_parse</short>
-+            <long>The shortcut keys for turning input method on or off</long>
-+      </locale>
-+    </schema>
-+    <schema>
-+      <key>/schemas/desktop/ibus/general/hotkey/trigger_accel_backward</key>
-+      <applyto>/desktop/ibus/general/hotkey/trigger_accel_backward</applyto>
-+      <owner>ibus</owner>
-+      <type>list</type>
-+      <list_type>string</list_type>
-+      <default>[&lt;Control&gt;&lt;Shift&gt;space]</default>
-+      <locale name="C">
-+        <short>Trigger reverse shortcut keys for gtk_accelerator_parse</short>
-+            <long>The reverse shortcut keys for turning input method on or off</long>
-+      </locale>
-+    </schema>
-+    <schema>
+@@ -66,6 +112,30 @@
+       </locale>
+     </schema>
+     <schema>
 +      <key>/schemas/desktop/ibus/general/hotkey/trigger_ja</key>
 +      <applyto>/desktop/ibus/general/hotkey/trigger_ja</applyto>
 +      <owner>ibus</owner>
@@ -321,11 +278,15 @@ index 53ba05c..07169ae 100644
 +      <default>[Hangul, Alt_R]</default>
 +      <locale name="C">
 +        <short>Trigger shortcut keys for ko gtk_accelerator_parse</short>
- 	    <long>The shortcut keys for turning input method on or off</long>
-       </locale>
-     </schema>
++	    <long>The shortcut keys for turning input method on or off</long>
++      </locale>
++    </schema>
++    <schema>
+       <key>/schemas/desktop/ibus/general/hotkey/enable_unconditional</key>
+       <applyto>/desktop/ibus/general/hotkey/enable_unconditional</applyto>
+       <owner>ibus</owner>
 diff --git a/engine/Makefile.am b/engine/Makefile.am
-index b3b46be..7a806fc 100644
+index b3b46be..90c6fde 100644
 --- a/engine/Makefile.am
 +++ b/engine/Makefile.am
 @@ -22,6 +22,12 @@
@@ -334,7 +295,7 @@ index b3b46be..7a806fc 100644
  
 +SUBDIRS =
 +
-+if ENABLE_XKB
++if ENABLE_IBUS_XKB
 +SUBDIRS += ibus-xkb
 +endif
 +
@@ -343,10 +304,10 @@ index b3b46be..7a806fc 100644
  	-I$(top_builddir)/src \
 diff --git a/engine/ibus-xkb/Makefile.am b/engine/ibus-xkb/Makefile.am
 new file mode 100644
-index 0000000..65ede37
+index 0000000..4a32e87
 --- /dev/null
 +++ b/engine/ibus-xkb/Makefile.am
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,61 @@
 +# vim:set noet ts=4:
 +#
 +# ibus - The Input Bus
@@ -385,9 +346,6 @@ index 0000000..65ede37
 +	-Wno-unused-function \
 +	$(NULL)
 +
-+AM_LDADD = \
-+	$(NULL)
-+
 +libexec_PROGRAMS = ibus-xkb
 +
 +ibus_xkb_SOURCES = \
@@ -413,10 +371,10 @@ index 0000000..65ede37
 +-include $(top_srcdir)/git.mk
 diff --git a/engine/ibus-xkb/ibus-xkb-main.c b/engine/ibus-xkb/ibus-xkb-main.c
 new file mode 100644
-index 0000000..2529e4d
+index 0000000..3dfd987
 --- /dev/null
 +++ b/engine/ibus-xkb/ibus-xkb-main.c
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,173 @@
 +/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 +/* vim:set et sts=4: */
 +/* bus - The Input Bus
@@ -454,7 +412,7 @@ index 0000000..2529e4d
 +
 +#include "xkblib.h"
 +
-+static gboolean get_layout = FALSE;
++static gboolean query = FALSE;
 +static gboolean get_group = FALSE;
 +static gchar *layout = NULL;
 +static gchar *variant = NULL;
@@ -463,7 +421,7 @@ index 0000000..2529e4d
 +
 +static const GOptionEntry entries[] =
 +{
-+    { "get", 'g', 0, G_OPTION_ARG_NONE, &get_layout, N_("Get current xkb layout"), NULL },
++    { "get", 'g', 0, G_OPTION_ARG_NONE, &query, N_("Query the current xkb layout"), NULL },
 +    { "layout", 'l', 0, G_OPTION_ARG_STRING, &layout, N_("Set xkb LAYOUT"), N_("LAYOUT") },
 +    { "variant", 'v', 0, G_OPTION_ARG_STRING, &variant, N_("Set xkb VARIANT"), N_("VARIANT") },
 +    { "option", 'o', 0, G_OPTION_ARG_STRING, &option, N_("Set xkb OPTION"), N_("OPTION") },
@@ -471,9 +429,60 @@ index 0000000..2529e4d
 +    { NULL },
 +};
 +
++
++gboolean
++parse_setxkbmap_args (int *pargc, char ***pargv)
++{
++    int argc = *pargc;
++    char **argv = *pargv;
++    char **new_argv = NULL;
++    int n = 1;
++    int i;
++    gboolean retval = FALSE;
++
++    for (i = 0; i < argc; i++) {
++        if (g_strcmp0 (argv[i], "-layout") == 0 && i + 1 < argc) {
++            g_free (layout);
++            layout = g_strdup (argv[i + 1]);
++            i++;
++            retval = TRUE;
++            continue;
++        }
++        if (g_strcmp0 (argv[i], "-variant") == 0 && i + 1 < argc) {
++            g_free (variant);
++            variant = g_strdup (argv[i + 1]);
++            i++;
++            retval = TRUE;
++            continue;
++        }
++        if (g_strcmp0 (argv[i], "-option") == 0 && i + 1 < argc) {
++            g_free (option);
++            option = g_strdup (argv[i + 1]);
++            i++;
++            retval = TRUE;
++            continue;
++        }
++        if (g_strcmp0 (argv[i], "-query") == 0) {
++            query = TRUE;
++            retval = TRUE;
++            continue;
++        }
++
++        new_argv = g_renew(char*, new_argv, n);
++        new_argv[n - 1] = g_strdup (argv[i]);
++        n++;
++    }
++
++    *pargc = n - 1;
++    *pargv = new_argv;
++
++    return retval;
++}
++
 +int
 +main (int argc, char *argv[])
 +{
++    gboolean parsed;
 +    GOptionContext *context;
 +    GError *error = NULL;
 +    Display *xdisplay;
@@ -485,12 +494,14 @@ index 0000000..2529e4d
 +    bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 +#endif
 +
++    parsed = parse_setxkbmap_args (&argc, &argv);
++
 +    context = g_option_context_new ("- ibus daemon");
 +
 +    g_option_context_set_translation_domain (context, GETTEXT_PACKAGE);
 +    g_option_context_add_main_entries (context, entries, GETTEXT_PACKAGE);
 +
-+    if (!g_option_context_parse (context, &argc, &argv, &error)) {
++    if (!parsed && !g_option_context_parse (context, &argc, &argv, &error)) {
 +        g_printerr ("Option parsing failed: %s\n", error->message);
 +        return -1;
 +    }
@@ -503,9 +514,18 @@ index 0000000..2529e4d
 +    ibus_xkb_init (xdisplay);
 +
 +    if (layout) {
++        if (option == NULL) {
++            option = ibus_xkb_get_current_option ();
++        }
++
 +        ibus_xkb_set_layout (layout, variant, option);
 +    }
-+    if (get_layout) {
++
++    if (query) {
++        g_free (layout);
++        g_free (variant);
++        g_free (option);
++
 +        layout = ibus_xkb_get_current_layout ();
 +        variant = ibus_xkb_get_current_variant ();
 +        option = ibus_xkb_get_current_option ();
@@ -1013,10 +1033,10 @@ index acfa737..afadca0 100644
      if (!bus.is_connected()) {
          warning("ibus-daemon does not exist.");
 diff --git a/engine/simple.xml.in.in b/engine/simple.xml.in.in
-index 25db578..7de949a 100644
+index d064ad6..d14ad93 100644
 --- a/engine/simple.xml.in.in
 +++ b/engine/simple.xml.in.in
-@@ -7,534 +7,5 @@
+@@ -7,620 +7,5 @@
  	<license>GPL</license>
  	<homepage>http://code.google.com/p/ibus</homepage>
  	<textdomain>ibus</textdomain>
@@ -1037,7 +1057,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>us(intl)</layout>
+-			<layout>us</layout>
+-			<layout_variant>intl</layout_variant>
 -			<longname>English (US, international with dead keys)</longname>
 -			<description>English (US, international with dead keys)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1048,7 +1069,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>us(colemak)</layout>
+-			<layout>us</layout>
+-			<layout_variant>colemak</layout_variant>
 -			<longname>English (Colemak)</longname>
 -			<description>English (Colemak)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1059,7 +1081,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>us(dvorak)</layout>
+-			<layout>us</layout>
+-			<layout_variant>dvorak</layout_variant>
 -			<longname>English (Dvorak)</longname>
 -			<description>English (Dvorak)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1070,20 +1093,21 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>us(altgr-intl)</layout>
+-			<layout>us</layout>
+-			<layout_variant>altgr-intl</layout_variant>
 -			<longname>English (international AltGr dead keys)</longname>
 -			<description>English (international AltGr dead keys)</description>
 -                        <icon>ibus-keyboard</icon>
 -			<rank>99</rank>
 -		</engine>
 -		<engine>
--			<name>xkb:us:altgr-intl:eng</name>
--			<language>eng</language>
+-			<name>xkb:ara::ara</name>
+-			<language>ara</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>us(altgr-intl)</layout>
--			<longname>English (international AltGr dead keys)</longname>
--			<description>English (international AltGr dead keys)</description>
+-			<layout>ara</layout>
+-			<longname>Arabic</longname>
+-			<description>Arabic</description>
 -                        <icon>ibus-keyboard</icon>
 -			<rank>99</rank>
 -		</engine>
@@ -1132,6 +1156,18 @@ index 25db578..7de949a 100644
 -			<rank>99</rank>
 -		</engine>
 -		<engine>
+-			<name>xkb:br:dvorak:por</name>
+-			<language>por</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>br</layout>
+-			<layout_variant>dvorak</layout_variant>
+-			<longname>Portuguese (Brazil, Dvorak)</longname>
+-			<description>Portuguese (Brazil, Dvorak)</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>99</rank>
+-		</engine>
+-		<engine>
 -			<name>xkb:bg::bul</name>
 -			<language>bul</language>
 -			<license>GPL</license>
@@ -1147,7 +1183,8 @@ index 25db578..7de949a 100644
 -			<language>bul</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>bg(phonetic)</layout>
+-			<layout>bg</layout>
+-			<layout_variant>phonetic</layout_variant>
 -			<longname>Bulgarian (traditional phonetic)</longname>
 -			<description>Bulgarian (traditional phonetic)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1169,7 +1206,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>ca(eng)</layout>
+-			<layout>ca</layout>
+-			<layout_variant>eng</layout_variant>
 -			<longname>English (Canada)</longname>
 -			<description>English (Canada)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1242,6 +1280,30 @@ index 25db578..7de949a 100644
 -			<rank>99</rank>
 -		</engine>
 -		<engine>
+-			<name>xkb:fr:bepo:fra</name>
+-			<language>fra</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>fr</layout>
+-			<layout_variant>bepo</layout_variant>
+-			<longname>French (Bepo, ergonomic, Dvorak way)</longname>
+-			<description>French (Bepo, ergonomic, Dvorak way)</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>1</rank>
+-		</engine>
+-		<engine>
+-			<name>xkb:fr:dvorak:fra</name>
+-			<language>fra</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>fr</layout>
+-			<layout_variant>dvorak</layout_variant>
+-			<longname>French (Dvorak)</longname>
+-			<description>French (Dvorak)</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>99</rank>
+-		</engine>
+-		<engine>
 -			<name>xkb:de::ger</name>
 -			<language>ger</language>
 -			<license>GPL</license>
@@ -1253,11 +1315,24 @@ index 25db578..7de949a 100644
 -			<rank>99</rank>
 -		</engine>
 -		<engine>
+-			<name>xkb:de:dvorak:ger</name>
+-			<language>ger</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>de</layout>
+-			<layout_variant>dvorak</layout_variant>
+-			<longname>German (Dvorak)</longname>
+-			<description>German (Dvorak)</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>99</rank>
+-		</engine>
+-		<engine>
 -			<name>xkb:de:neo:ger</name>
 -			<language>ger</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>de(neo)</layout>
+-			<layout>de</layout>
+-			<layout_variant>neo</layout_variant>
 -			<longname>German (Neo 2)</longname>
 -			<description>German (Neo 2)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1345,7 +1420,8 @@ index 25db578..7de949a 100644
 -			<language>lav</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>lv(apostrophe)</layout>
+-			<layout>lv</layout>
+-			<layout_variant>apostrophe</layout_variant>
 -			<longname>Latvian (apostrophe variant)</longname>
 -			<description>Latvian (apostrophe variant)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1359,6 +1435,18 @@ index 25db578..7de949a 100644
 -			<layout>pl</layout>
 -			<longname>Polish</longname>
 -			<description>Polish</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>99</rank>
+-		</engine>
+-		<engine>
+-			<name>xkb:pl:dvorak:pol</name>
+-			<language>pol</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>pl</layout>
+-			<layout_variant>dvorak</layout_variant>
+-			<longname>Polish (Dvorak)</longname>
+-			<description>Polish (Dvorak)</description>
 -                        <icon>ibus-keyboard</icon>
 -			<rank>99</rank>
 -		</engine>
@@ -1400,7 +1488,8 @@ index 25db578..7de949a 100644
 -			<language>rus</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>ru(phonetic)</layout>
+-			<layout>ru</layout>
+-			<layout_variant>phonetic</layout_variant>
 -			<longname>Russian (phonetic)</longname>
 -			<description>Russian (phonetic)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1455,7 +1544,8 @@ index 25db578..7de949a 100644
 -			<language>cat</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>es(cat)</layout>
+-			<layout>es</layout>
+-			<layout_variant>cat</layout_variant>
 -			<longname>Catalan (Spain, with middle-dot L)</longname>
 -			<description>Catalan (Spain, with middle-dot L)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1469,6 +1559,18 @@ index 25db578..7de949a 100644
 -			<layout>se</layout>
 -			<longname>Swedish</longname>
 -			<description>Swedish</description>
+-                        <icon>ibus-keyboard</icon>
+-			<rank>99</rank>
+-		</engine>
+-		<engine>
+-			<name>xkb:se:dvorak:swe</name>
+-			<language>swe</language>
+-			<license>GPL</license>
+-			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
+-			<layout>se</layout>
+-			<layout_variant>dvorak</layout_variant>
+-			<longname>Swedish (Dvorak)</longname>
+-			<description>Swedish (Dvorak)</description>
 -                        <icon>ibus-keyboard</icon>
 -			<rank>99</rank>
 -		</engine>
@@ -1488,7 +1590,8 @@ index 25db578..7de949a 100644
 -			<language>fra</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>ch(fr)</layout>
+-			<layout>ch</layout>
+-			<layout_variant>fr</layout_variant>
 -			<longname>French (Switzerland)</longname>
 -			<description>French (Switzerland)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1521,7 +1624,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>gb(extd)</layout>
+-			<layout>gb</layout>
+-			<layout_variant>extd</layout_variant>
 -			<longname>English (UK, extended WinKeys)</longname>
 -			<description>English (UK, extended WinKeys)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1532,7 +1636,8 @@ index 25db578..7de949a 100644
 -			<language>eng</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>gb(dvorak)</layout>
+-			<layout>gb</layout>
+-			<layout_variant>dvorak</layout_variant>
 -			<longname>English (UK, Dvorak)</longname>
 -			<description>English (UK, Dvorak)</description>
 -                        <icon>ibus-keyboard</icon>
@@ -1543,14 +1648,15 @@ index 25db578..7de949a 100644
 -			<language>kor</language>
 -			<license>GPL</license>
 -			<author>Peng Huang &lt;shawn.p.huang@gmail.com&gt;</author>
--			<layout>kr(kr104)</layout>
+-			<layout>kr</layout>
+-			<layout_variant>kr104</layout_variant>
 -			<longname>Korean (101/104 key compatible)</longname>
 -			<description>Korean (101/104 key compatible)</description>
 -                        <icon>ibus-keyboard</icon>
 -			<rank>99</rank>
 -		</engine>
 -	</engines>
-+	<engines exec=\"${libexecdir}/ibus-engine-simple --xml\" />
++        <engines exec=\"${libexecdir}/ibus-engine-simple --xml\" />
  </component>
 diff --git a/ibus-1.0.pc.in b/ibus-1.0.pc.in
 index 9f593ab..66b902a 100644
@@ -1615,7 +1721,7 @@ index 58cac38..4b6f869 100644
  
  # make -C po update-gmo
 diff --git a/setup/main.py b/setup/main.py
-index 8a2391d..2a19c49 100644
+index f527da1..c02229b 100644
 --- a/setup/main.py
 +++ b/setup/main.py
 @@ -67,6 +67,13 @@ class Setup(object):
@@ -1688,21 +1794,29 @@ index 8a2391d..2a19c49 100644
          if prop.name not in ("active-engine", "engines"):
              return
 diff --git a/src/Makefile.am b/src/Makefile.am
-index df4ada3..e249ada 100644
+index df4ada3..f8499a8 100644
 --- a/src/Makefile.am
 +++ b/src/Makefile.am
-@@ -194,6 +194,11 @@ typelibs_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
- CLEANFILES += $(dist_gir_DATA) $(typelibs_DATA)
- endif
- 
-+if ENABLE_XKB
+@@ -97,6 +97,9 @@
+     ibusutil.c              \
+     ibusenginesimple.c      \
+     $(NULL)
++if ENABLE_IBUS_XKB
 +ibus_sources += ibusxkbxml.c
++endif
+ libibus_1_0_la_SOURCES =    \
+     ibusmarshalers.c        \
+     ibusenumtypes.c         \
+@@ -145,6 +148,9 @@
+     ibusutil.h              \
+     ibusenginesimple.h      \
+     $(NULL)
++if ENABLE_IBUS_XKB
 +ibus_headers += ibusxkbxml.h
 +endif
-+
- # gen enum types
- ibusenumtypes.h: $(ibus_headers) ibusenumtypes.h.template
- 	$(AM_V_GEN) ( top_builddir=`cd $(top_builddir) && pwd`; \
+ ibusincludedir = $(includedir)/ibus-@IBUS_API_VERSION@
+ ibus_public_headers =       \
+     $(ibus_headers)         \
 diff --git a/src/ibus.h b/src/ibus.h
 index ef811a4..f82a162 100644
 --- a/src/ibus.h
@@ -2381,31 +2495,29 @@ index 0000000..6f5b7bd
 +G_END_DECLS
 +#endif
 diff --git a/ui/gtk3/Makefile.am b/ui/gtk3/Makefile.am
-index 5473027..cbd746c 100644
+index 5473027..6cb02a1 100644
 --- a/ui/gtk3/Makefile.am
 +++ b/ui/gtk3/Makefile.am
-@@ -47,6 +47,9 @@ USE_SYMBOL_ICON = FALSE
+@@ -47,6 +47,8 @@ USE_SYMBOL_ICON = FALSE
  # force include config.h before gi18n.h.
  AM_CPPFLAGS = -include $(CONFIG_HEADER)
  
-+HAVE_IBUS_XKB_C = $(strip $(subst false, FALSE, $(subst true, TRUE, $(HAVE_IBUS_XKB))))
 +HAVE_IBUS_GKBD_C = $(strip $(subst false, FALSE, $(subst true, TRUE, $(HAVE_IBUS_GKBD))))
 +
  AM_CFLAGS = \
  	@GLIB2_CFLAGS@ \
  	@GIO2_CFLAGS@ \
-@@ -58,6 +61,10 @@ AM_CFLAGS = \
+@@ -58,6 +60,9 @@ AM_CFLAGS = \
  	-DBINDIR=\"$(bindir)\" \
  	-DIBUS_DISABLE_DEPRECATED \
  	-DSWITCHER_USE_SYMBOL_ICON=$(USE_SYMBOL_ICON) \
-+	-DHAVE_IBUS_XKB=$(HAVE_IBUS_XKB_C) \
 +	-DHAVE_IBUS_GKBD=$(HAVE_IBUS_GKBD_C) \
 +	-DIBUS_XKB_COMMAND=\"$(libexecdir)/ibus-xkb\" \
 +	-DXKB_LAYOUTS_MAX_LENGTH=4 \
  	-Wno-unused-variable \
  	-Wno-unused-but-set-variable \
  	-Wno-unused-function \
-@@ -91,6 +98,7 @@ ibus_ui_gtk3_SOURCES = \
+@@ -91,6 +96,7 @@ ibus_ui_gtk3_SOURCES = \
  	application.vala \
  	candidatearea.vala \
  	candidatepanel.vala \
@@ -2413,7 +2525,7 @@ index 5473027..cbd746c 100644
  	handle.vala \
  	iconwidget.vala \
  	keybindingmanager.vala \
-@@ -99,17 +107,48 @@ ibus_ui_gtk3_SOURCES = \
+@@ -99,17 +105,48 @@ ibus_ui_gtk3_SOURCES = \
  	property.vala \
  	separator.vala \
  	switcher.vala \
@@ -2645,93 +2757,11 @@ index 0000000..2b78c69
 +    }
 +    */
 +}
-diff --git a/ui/gtk3/keybindingmanager.vala b/ui/gtk3/keybindingmanager.vala
-index 5ff0c65..bfe560c 100644
---- a/ui/gtk3/keybindingmanager.vala
-+++ b/ui/gtk3/keybindingmanager.vala
-@@ -41,15 +41,18 @@ public class KeybindingManager : GLib.Object {
-     private class Keybinding {
-         public Keybinding(uint keysym,
-                           Gdk.ModifierType modifiers,
--                          KeybindingHandlerFunc handler) {
-+                          KeybindingHandlerFunc handler,
-+                          bool reverse) {
-             this.keysym = keysym;
-             this.modifiers = modifiers;
-             this.handler = handler;
-+            this.reverse = reverse;
-         }
- 
-         public uint keysym { get; set; }
-         public Gdk.ModifierType modifiers { get; set; }
-         public unowned KeybindingHandlerFunc handler { get; set; }
-+        public bool reverse { get; set; }
-     }
- 
-     /**
-@@ -57,7 +60,7 @@ public class KeybindingManager : GLib.Object {
-      *
-      * @param event passing on gdk event
-      */
--    public delegate void KeybindingHandlerFunc(Gdk.Event event);
-+    public delegate void KeybindingHandlerFunc(Gdk.Event event, bool reverse);
- 
- 
-     private  KeybindingManager() {
-@@ -73,7 +76,8 @@ public class KeybindingManager : GLib.Object {
-      */
-     public bool bind(uint keysym,
-                      Gdk.ModifierType modifiers,
--                     KeybindingHandlerFunc handler) {
-+                     KeybindingHandlerFunc handler,
-+                     bool reverse) {
-         unowned X.Display display = Gdk.x11_get_default_xdisplay();
- 
-         int keycode = display.keysym_to_keycode(keysym);
-@@ -84,7 +88,7 @@ public class KeybindingManager : GLib.Object {
-         grab_keycode (Gdk.Display.get_default(), keysym, modifiers);
- 
-         // store binding
--        Keybinding binding = new Keybinding(keysym, modifiers, handler);
-+        Keybinding binding = new Keybinding(keysym, modifiers, handler, reverse);
-         m_bindings.append(binding);
- 
-         return true;
-@@ -198,7 +202,7 @@ public class KeybindingManager : GLib.Object {
-                     if (event.key.keyval != binding.keysym ||
-                         modifiers != binding.modifiers)
-                         continue;
--                    binding.handler(event);
-+                    binding.handler(event, binding.reverse);
-                     return;
-                 }
-             }
 diff --git a/ui/gtk3/panel.vala b/ui/gtk3/panel.vala
-index 40079ec..8e6f756 100644
---- ibus-1.4.99.20121109/ui/gtk3/panel.vala.orig	2012-11-09 07:16:19.000000000 +0100
-+++ ibus-1.4.99.20121109/ui/gtk3/panel.vala	2012-11-17 19:22:03.176142457 +0100
-@@ -21,6 +21,20 @@
-  */
- 
- class Panel : IBus.PanelService {
-+    private class Keybinding {
-+        public Keybinding(uint keysym,
-+                          Gdk.ModifierType modifiers,
-+                          bool reverse) {
-+            this.keysym = keysym;
-+            this.modifiers = modifiers;
-+            this.reverse = reverse;
-+        }
-+
-+        public uint keysym { get; set; }
-+        public Gdk.ModifierType modifiers { get; set; }
-+        public bool reverse { get; set; }
-+    }
-+
-     private IBus.Bus m_bus;
-     private IBus.Config m_config;
-     private Gtk.StatusIcon m_status_icon;
-@@ -34,10 +48,17 @@
+index c159693..63b0cde 100644
+--- a/ui/gtk3/panel.vala
++++ b/ui/gtk3/panel.vala
+@@ -48,7 +48,15 @@
      private Gtk.AboutDialog m_about_dialog;
      private Gtk.CssProvider m_css_provider;
      private int m_switcher_delay_time = 400;
@@ -2745,28 +2775,13 @@ index 40079ec..8e6f756 100644
      private const string ACCELERATOR_SWITCH_IME_FOREWARD = "<Control>space";
 +    private const string ACCELERATOR_SWITCH_IME_BACKWARD = "<Control><Shift>space";
  
--    private uint m_switch_keysym = 0;
--    private Gdk.ModifierType m_switch_modifiers = 0;
-+    private GLib.List<Keybinding> m_keybindings = new GLib.List<Keybinding>();
+     private GLib.List<Keybinding> m_keybindings = new GLib.List<Keybinding>();
  
-     public Panel(IBus.Bus bus) {
-         GLib.assert(bus.is_connected());
-@@ -60,7 +81,6 @@
-         m_candidate_panel.page_down.connect((w) => this.page_down());
- 
-         m_switcher = new Switcher();
--        bind_switch_shortcut();
- 
-         if (m_switcher_delay_time >= 0) {
-             m_switcher.set_popup_delay_time((uint) m_switcher_delay_time);
-@@ -76,64 +96,135 @@
+@@ -90,6 +98,14 @@
  
      ~Panel() {
          unbind_switch_shortcut();
--    }
- 
--    private void bind_switch_shortcut() {
--        var keybinding_manager = KeybindingManager.get_instance();
++
 +        if (HAVE_IBUS_GKBD && m_gkbdlayout != null) {
 +            m_gkbdlayout.changed.disconnect(gkbdlayout_changed_cb);
 +            m_gkbdlayout.stop_listen();
@@ -2774,175 +2789,52 @@ index 40079ec..8e6f756 100644
 +        }
 +
 +        m_xkblayout = null;
-+    }
+     }
  
--        var accelerator = ACCELERATOR_SWITCH_IME_FOREWARD;
-+    private void keybinding_manager_bind(KeybindingManager keybinding_manager,
-+                                         string? accelerator,
-+                                         bool reverse) {
-+        uint switch_keysym = 0;
-+        Gdk.ModifierType switch_modifiers = 0;
-         Gtk.accelerator_parse(accelerator,
--                out m_switch_keysym, out m_switch_modifiers);
-+                out switch_keysym, out switch_modifiers);
+     private void keybinding_manager_bind(KeybindingManager keybinding_manager,
+@@ -152,6 +168,12 @@
+     }
  
--        // Map virtual modifiers to (i.e.Mod2, Mod3, ...)
-+        // Map virtual modifiers to (i.e. Mod2, Mod3, ...)
-         const Gdk.ModifierType VIRTUAL_MODIFIERS = (
-                 Gdk.ModifierType.SUPER_MASK |
-                 Gdk.ModifierType.HYPER_MASK |
-                 Gdk.ModifierType.META_MASK);
--        if ((m_switch_modifiers & VIRTUAL_MODIFIERS) != 0) {
-+        if ((switch_modifiers & VIRTUAL_MODIFIERS) != 0) {
-         // workaround a bug in gdk vapi vala > 0.18
-         // https://bugzilla.gnome.org/show_bug.cgi?id=677559
- #if VALA_0_18
-             Gdk.Keymap.get_default().map_virtual_modifiers(
--                    ref m_switch_modifiers);
-+                    ref switch_modifiers);
- #else
--            if ((m_switch_modifiers & Gdk.ModifierType.SUPER_MASK) != 0)
--                m_switch_modifiers |= Gdk.ModifierType.MOD4_MASK;
--            if ((m_switch_modifiers & Gdk.ModifierType.HYPER_MASK) != 0)
--                m_switch_modifiers |= Gdk.ModifierType.MOD4_MASK;
-+            if ((switch_modifiers & Gdk.ModifierType.SUPER_MASK) != 0)
-+                switch_modifiers |= Gdk.ModifierType.MOD4_MASK;
-+            if ((switch_modifiers & Gdk.ModifierType.HYPER_MASK) != 0)
-+                switch_modifiers |= Gdk.ModifierType.MOD4_MASK;
- #endif
--            m_switch_modifiers &= ~VIRTUAL_MODIFIERS;
-+            switch_modifiers &= ~VIRTUAL_MODIFIERS;
-         }
- 
--        if (m_switch_keysym == 0 && m_switch_modifiers == 0) {
-+        if (switch_keysym == 0 && switch_modifiers == 0) {
-             warning("Parse accelerator '%s' failed!", accelerator);
-             return;
-         }
- 
--        keybinding_manager.bind(m_switch_keysym, m_switch_modifiers,
--                (e) => handle_engine_switch(e, false));
-+        Keybinding keybinding = new Keybinding(switch_keysym,
-+                                               switch_modifiers,
-+                                               reverse);
-+        m_keybindings.append(keybinding);
-+
-+        keybinding_manager.bind(switch_keysym, switch_modifiers,
-+                (e, _reverse) => handle_engine_switch(e, _reverse),
-+                reverse);
-+    }
- 
--        // accelerator already has Shift mask
--        if ((m_switch_modifiers & Gdk.ModifierType.SHIFT_MASK) != 0)
--            return;
-+    // ToDo: Customize the input method with ibus-setup
-+    private void bind_switch_shortcut() {
+     private void bind_switch_shortcut(Variant? variant) {
 +        string locale = GLib.Intl.setlocale(GLib.LocaleCategory.ALL,
 +                                            null);
 +        if (locale == null) {
 +            locale = "C";
 +        }
 +
-+        string[] ACCELERATOR_IME_HOTKEYS = {};
-+        ACCELERATOR_IME_HOTKEYS += ACCELERATOR_SWITCH_IME_FOREWARD;
+         string[] accelerators = {};
+         Variant var_trigger = variant;
  
--        keybinding_manager.bind(m_switch_keysym,
--                m_switch_modifiers | Gdk.ModifierType.SHIFT_MASK,
--                (e) => handle_engine_switch(e, true));
-+        if (m_config != null) {
-+            GLib.Variant variant = m_config.get_value("general/hotkey",
-+                                                      "trigger_accel");
-+            if (variant != null) {
-+                ACCELERATOR_IME_HOTKEYS = {};
-+                for (int i = 0; i < variant.n_children(); i++) {
-+                    ACCELERATOR_IME_HOTKEYS += variant.get_child_value(i).dup_string();
-+                }
-+            }
-+        }
-+
-+        if (ACCELERATOR_IME_HOTKEYS.length == 1 &&
-+            ACCELERATOR_IME_HOTKEYS[0] == ACCELERATOR_SWITCH_IME_FOREWARD) {
+@@ -166,6 +188,20 @@
+             accelerators += ACCELERATOR_SWITCH_IME_FOREWARD;
+         }
+ 
++        if (accelerators.length == 1 &&
++            accelerators[0] == ACCELERATOR_SWITCH_IME_FOREWARD) {
 +            // FIXME: When us keyboard is used, Zenkaku_Hankaku does not work.
 +            /*
 +            if (locale[0:2] == "ja") {
-+                ACCELERATOR_IME_HOTKEYS += "Zenkaku_Hankaku";
++                accelerators += "Zenkaku_Hankaku";
 +            }
 +            */
 +            if (locale[0:2] == "ko") {
-+                ACCELERATOR_IME_HOTKEYS += "Hangul";
-+                ACCELERATOR_IME_HOTKEYS += "Alt_R";
++                accelerators += "Hangul";
++                accelerators += "Alt_R";
 +            }
 +        }
 +
-+        var keybinding_manager = KeybindingManager.get_instance();
-+
-+        foreach (var accelerator in ACCELERATOR_IME_HOTKEYS) {
-+            keybinding_manager_bind(keybinding_manager, accelerator, false);
-+        }
-+
-+        ACCELERATOR_IME_HOTKEYS = {};
-+        ACCELERATOR_IME_HOTKEYS += ACCELERATOR_SWITCH_IME_BACKWARD;
-+
-+        if (m_config != null) {
-+            GLib.Variant variant = m_config.get_value("general/hotkey",
-+                                                      "trigger_accel_backward");
-+            if (variant != null) {
-+                ACCELERATOR_IME_HOTKEYS = {};
-+                for (int i = 0; i < variant.n_children(); i++) {
-+                    ACCELERATOR_IME_HOTKEYS += variant.get_child_value(i).dup_string();
-+                }
-+            }
-+        }
-+
-+        foreach (var accelerator in ACCELERATOR_IME_HOTKEYS) {
-+            keybinding_manager_bind(keybinding_manager, accelerator, true);
-+        }
-     }
- 
-     private void unbind_switch_shortcut() {
          var keybinding_manager = KeybindingManager.get_instance();
  
--        if (m_switch_keysym == 0 && m_switch_modifiers == 0)
--            return;
-+        unowned GLib.List<Keybinding> keybindings = m_keybindings;
-+
-+        while (keybindings != null) {
-+            Keybinding keybinding = keybindings.data;
- 
--        keybinding_manager.unbind(m_switch_keysym, m_switch_modifiers);
--        keybinding_manager.unbind(m_switch_keysym,
--                m_switch_modifiers | Gdk.ModifierType.SHIFT_MASK);
-+            keybinding_manager.unbind(keybinding.keysym,
-+                                      keybinding.modifiers);
- 
--        m_switch_keysym = 0;
--        m_switch_modifiers = 0;
-+            // Need to get keybindings.next before GList.remove is called.
-+            keybindings = keybindings.next;
-+            m_keybindings.remove(keybinding);
-+        }
-     }
- 
-     private void set_custom_font() {
-@@ -220,13 +311,17 @@
-         }
- 
-         m_config = config;
-+        bind_switch_shortcut();
-         if (m_config != null) {
-             m_config.value_changed.connect(config_value_changed_cb);
-             m_config.watch("general", "preload_engines");
-             m_config.watch("general", "engines_order");
-             m_config.watch("general", "switcher_delay_time");
-+            m_config.watch("general/hotkey", "trigger_accel");
-+            m_config.watch("general/hotkey", "trigger_accel_backward");
+         foreach (var accelerator in accelerators) {
+@@ -281,6 +317,7 @@
+             m_config.watch("general/hotkey", "triggers");
              m_config.watch("panel", "custom_font");
              m_config.watch("panel", "use_custom_font");
 +            init_engines_order();
              update_engines(m_config.get_value("general", "preload_engines"),
                             m_config.get_value("general", "engines_order"));
-             set_switcher_delay_time(null);
-@@ -282,6 +377,192 @@
+             unbind_switch_shortcut();
+@@ -338,6 +375,200 @@
          }
      }
  
@@ -2987,8 +2879,11 @@ index 40079ec..8e6f756 100644
 +        }
 +
 +        m_xkblayout = new XKBLayout(m_config);
++        string session = Environment.get_variable("DESKTOP_SESSION");
 +
-+        if (HAVE_IBUS_GKBD) {
++        if (HAVE_IBUS_GKBD &&
++            session != null && session.length >= 5 &&
++            session[0:5] == "gnome") {
 +            init_gkbd();
 +        }
 +
@@ -3080,7 +2975,10 @@ index 40079ec..8e6f756 100644
 +    }
 +
 +    private void set_xkb_group_layout(string layout) {
-+        int[] retval = m_xkblayout.set_layout(layout);
++        int[] retval = m_xkblayout.set_layout(layout,
++                                              "default",
++                                              "default",
++                                              true);
 +        if (retval[0] >= 0) {
 +            /* If an XKB keymap is added into the XKB group,
 +             * this._gkbdlayout.lock_group will be called after
@@ -3112,7 +3010,9 @@ index 40079ec..8e6f756 100644
 +        return false;
 +    }
 +
-+    private void set_layout(string layout) {
++    private void set_layout(IBus.EngineDesc engine) {
++        string layout = engine.get_layout();
++
 +        if (layout == "default" || layout == null) {
 +            return;
 +        }
@@ -3121,7 +3021,7 @@ index 40079ec..8e6f756 100644
 +            init_engines_order();
 +        }
 +
-+        if (HAVE_IBUS_GKBD) {
++        if (HAVE_IBUS_GKBD && m_gkbdlayout != null) {
 +            if (set_gkbd_layout(layout)) {
 +                return;
 +            }
@@ -3135,143 +3035,34 @@ index 40079ec..8e6f756 100644
      private void switch_engine(int i, bool force = false) {
          GLib.assert(i >= 0 && i < m_engines.length);
  
-@@ -296,7 +577,7 @@
+@@ -352,7 +583,7 @@
              return;
          }
          // set xkb layout
 -        exec_setxkbmap(engine);
-+        set_layout(engine.get_layout());
++        set_layout(engine);
      }
  
      private void config_value_changed_cb(IBus.Config config,
-@@ -308,6 +589,13 @@
+@@ -368,6 +599,12 @@
+             unbind_switch_shortcut();
+             bind_switch_shortcut(variant);
              return;
-         }
- 
-+        if (section == "general/hotkey" &&
-+            name.length >= 13 && name[0:13] == "trigger_accel") {
++        }
++
++        if (section == "general/hotkey" && name == "trigger_accel") {
 +            unbind_switch_shortcut();
-+            bind_switch_shortcut();
++            bind_switch_shortcut(variant);
 +            return;
-+        }
-+
-         if (section == "panel" && (name == "custom_font" ||
-                                    name == "use_custom_font")) {
-             set_custom_font();
-@@ -331,8 +619,7 @@
-                 event, primary_modifiers);
-         if (pressed && m_switcher_delay_time >= 0) {
-             int i = revert ? m_engines.length - 1 : 1;
--            i = m_switcher.run(m_switch_keysym, m_switch_modifiers, event,
--                    m_engines, i);
-+            i = m_switcher.run(m_keybindings, event, m_engines, i);
-             if (i < 0) {
-                 debug("switch cancelled");
-             } else {
-diff --git a/ui/gtk3/switcher.vala b/ui/gtk3/switcher.vala
-index ab2040b..dff5c96 100644
---- ibus-1.4.99.20121109/ui/gtk3/switcher.vala.orig	2012-11-17 19:05:59.422829209 +0100
-+++ ibus-1.4.99.20121109/ui/gtk3/switcher.vala	2012-11-17 19:23:40.539473761 +0100
-@@ -63,13 +63,26 @@
-         public string longname { get; set; }
-     }
- 
-+    private class Keybinding {
-+        public Keybinding(uint keysym,
-+                          Gdk.ModifierType modifiers,
-+                          bool reverse) {
-+            this.keysym = keysym;
-+            this.modifiers = modifiers;
-+            this.reverse = reverse;
-+        }
-+
-+        public uint keysym { get; set; }
-+        public Gdk.ModifierType modifiers { get; set; }
-+        public bool reverse { get; set; }
-+    }
-+
-     private Gtk.Box m_box;
-     private Gtk.Label m_label;
-     private IBusEngineButton[] m_buttons = {};
-     private IBus.EngineDesc[] m_engines;
-     private uint m_selected_engine;
--    private uint m_keyval;
--    private uint m_modifiers;
-+    private unowned GLib.List<Keybinding> m_keybindings;
-     private Gdk.ModifierType m_primary_modifier;
-     private GLib.MainLoop m_loop;
-     private int m_result;
-@@ -109,19 +122,17 @@
-         grab_focus();
-     }
- 
--    public int run(uint keyval,
--                   uint state,
-+    public int run(GLib.List keybindings,
-                    Gdk.Event event,
-                    IBus.EngineDesc[] engines,
-                    int index) {
-         assert (m_loop == null);
-         assert (index < engines.length);
- 
--        m_keyval = keyval;
--        m_modifiers = state;
-+        m_keybindings = (GLib.List<Keybinding>) keybindings;
-         m_primary_modifier =
-             KeybindingManager.get_primary_modifier(
--                state & KeybindingManager.MODIFIER_FILTER);
-+                event.key.state & KeybindingManager.MODIFIER_FILTER);
- 
-         update_engines(engines);
-         /* Let gtk recalculate the window size. */
-@@ -328,27 +339,29 @@
-     public override bool key_press_event(Gdk.EventKey e) {
-         bool retval = true;
-         Gdk.EventKey *pe = &e;
-+        uint modifiers = KeybindingManager.MODIFIER_FILTER & pe->state;
- 
-         if (m_popup_delay_time > 0) {
-             restore_window_position("pressed");
          }
  
--        do {
--            uint modifiers = KeybindingManager.MODIFIER_FILTER & pe->state;
--
--            if ((modifiers != m_modifiers) &&
--                (modifiers != (m_modifiers | Gdk.ModifierType.SHIFT_MASK))) {
--                break;
--            }
--
--            if (pe->keyval == m_keyval) {
--                if (modifiers == m_modifiers)
-+        for (unowned GLib.List<Keybinding> keybindings = m_keybindings;
-+             keybindings != null;
-+             keybindings = keybindings.next) {
-+            Keybinding keybinding = keybindings.data;
-+
-+            if (pe->keyval == keybinding.keysym &&
-+                modifiers == (uint) keybinding.modifiers) {
-+                if (!keybinding.reverse) {
-                     next_engine();
--                else // modififers == m_modifiers | SHIFT_MASK
-+                } else {
-                     previous_engine();
--                break;
-+                }
-+                return true;
-             }
-+        }
- 
-+        do {
-             switch (pe->keyval) {
-                 case 0x08fb: /* leftarrow */
-                 case 0xff51: /* Left */
+         if (section == "panel" && (name == "custom_font" ||
 diff --git a/ui/gtk3/xkblayout.vala b/ui/gtk3/xkblayout.vala
 new file mode 100644
-index 0000000..33e9d9d
+index 0000000..2092a60
 --- /dev/null
 +++ b/ui/gtk3/xkblayout.vala
-@@ -0,0 +1,464 @@
+@@ -0,0 +1,465 @@
 +/* vim:set et sts=4 sw=4:
 + *
 + * ibus - The Input Bus
@@ -3522,7 +3313,8 @@ index 0000000..33e9d9d
 +
 +    public int[] set_layout(string _layout="default",
 +                            string _variant="default",
-+                            string _option="default") {
++                            string _option="default",
++                            bool   use_group_layout=false) {
 +        assert (_layout != null);
 +
 +        int xkb_group_id = 0;
@@ -3585,7 +3377,7 @@ index 0000000..33e9d9d
 +            layout = m_default_layout;
 +            variant = m_default_variant;
 +        } else {
-+            if (HAVE_IBUS_GKBD) {
++            if (use_group_layout) {
 +                if (variant == "default") {
 +                    variant = "";
 +                }
@@ -3737,5 +3529,5 @@ index 0000000..33e9d9d
 +    */
 +}
 -- 
-1.7.10.4
+1.8.0
 
