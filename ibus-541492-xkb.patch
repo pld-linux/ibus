@@ -180,14 +180,14 @@ index cc7d0e0..246b3fc 100644
  # GObject introspection
  GOBJECT_INTROSPECTION_CHECK([0.6.8])
  
-@@ -517,6 +582,7 @@ src/ibusversion.h
+@@ -519,6 +584,7 @@
  src/tests/Makefile
  bus/Makefile
  engine/Makefile
 +engine/ibus-xkb/Makefile
- engine/simple.xml.in
  util/Makefile
  util/IMdkit/Makefile
+ data/Makefile
 @@ -576,6 +642,8 @@ Build options:
    No snooper regexes        "$NO_SNOOPER_APPS"
    Panel icon                "$IBUS_ICON_KEYBOARD"
@@ -1032,10 +1032,10 @@ index acfa737..afadca0 100644
      IBus.Bus bus = new IBus.Bus();
      if (!bus.is_connected()) {
          warning("ibus-daemon does not exist.");
-diff --git a/engine/simple.xml.in.in b/engine/simple.xml.in.in
+diff --git a/engine/simple.xml.in b/engine/simple.xml.in
 index d064ad6..d14ad93 100644
---- a/engine/simple.xml.in.in
-+++ b/engine/simple.xml.in.in
+--- a/engine/simple.xml.in
++++ b/engine/simple.xml.in
 @@ -7,620 +7,5 @@
  	<license>GPL</license>
  	<homepage>http://code.google.com/p/ibus</homepage>
@@ -2498,7 +2498,7 @@ diff --git a/ui/gtk3/Makefile.am b/ui/gtk3/Makefile.am
 index 5473027..6cb02a1 100644
 --- a/ui/gtk3/Makefile.am
 +++ b/ui/gtk3/Makefile.am
-@@ -47,6 +47,8 @@ USE_SYMBOL_ICON = FALSE
+@@ -45,6 +45,8 @@
  # force include config.h before gi18n.h.
  AM_CPPFLAGS = -include $(CONFIG_HEADER)
  
@@ -2507,7 +2507,7 @@ index 5473027..6cb02a1 100644
  AM_CFLAGS = \
  	@GLIB2_CFLAGS@ \
  	@GIO2_CFLAGS@ \
-@@ -58,6 +60,9 @@ AM_CFLAGS = \
+@@ -56,6 +58,9 @@
  	-DBINDIR=\"$(bindir)\" \
  	-DIBUS_DISABLE_DEPRECATED \
  	-DSWITCHER_USE_SYMBOL_ICON=$(USE_SYMBOL_ICON) \
@@ -2517,7 +2517,7 @@ index 5473027..6cb02a1 100644
  	-Wno-unused-variable \
  	-Wno-unused-but-set-variable \
  	-Wno-unused-function \
-@@ -91,6 +96,7 @@ ibus_ui_gtk3_SOURCES = \
+@@ -89,6 +94,7 @@
  	application.vala \
  	candidatearea.vala \
  	candidatepanel.vala \
@@ -2525,7 +2525,7 @@ index 5473027..6cb02a1 100644
  	handle.vala \
  	iconwidget.vala \
  	keybindingmanager.vala \
-@@ -99,17 +105,48 @@ ibus_ui_gtk3_SOURCES = \
+@@ -97,17 +103,48 @@
  	property.vala \
  	separator.vala \
  	switcher.vala \
@@ -2571,7 +2571,7 @@ index 5473027..6cb02a1 100644
  EXTRA_DIST = \
 +	gkbdlayout.vala.false \
 +	gkbdlayout.vala.true \
- 	gtkpanel.xml.in.in \
+ 	gtkpanel.xml.in \
  	$(NULL)
  
 diff --git a/ui/gtk3/gkbdlayout.vala.false b/ui/gtk3/gkbdlayout.vala.false
@@ -2761,7 +2761,7 @@ diff --git a/ui/gtk3/panel.vala b/ui/gtk3/panel.vala
 index c159693..63b0cde 100644
 --- a/ui/gtk3/panel.vala
 +++ b/ui/gtk3/panel.vala
-@@ -48,7 +48,15 @@
+@@ -48,8 +48,16 @@
      private Gtk.AboutDialog m_about_dialog;
      private Gtk.CssProvider m_css_provider;
      private int m_switcher_delay_time = 400;
@@ -2772,12 +2772,13 @@ index c159693..63b0cde 100644
 +    private int m_fallback_lock_id = -1;
 +    private bool m_changed_xkb_option = false;
 +    private GLib.Timer m_changed_layout_timer;
+     private bool m_use_system_keyboard_layout = false;
      private const string ACCELERATOR_SWITCH_IME_FOREWARD = "<Control>space";
 +    private const string ACCELERATOR_SWITCH_IME_BACKWARD = "<Control><Shift>space";
  
      private GLib.List<Keybinding> m_keybindings = new GLib.List<Keybinding>();
  
-@@ -90,6 +98,14 @@
+@@ -91,6 +99,14 @@
  
      ~Panel() {
          unbind_switch_shortcut();
@@ -2792,7 +2793,7 @@ index c159693..63b0cde 100644
      }
  
      private void keybinding_manager_bind(KeybindingManager keybinding_manager,
-@@ -152,6 +168,12 @@
+@@ -153,6 +169,12 @@
      }
  
      private void bind_switch_shortcut(Variant? variant) {
@@ -2805,7 +2806,7 @@ index c159693..63b0cde 100644
          string[] accelerators = {};
          Variant var_trigger = variant;
  
-@@ -166,6 +188,20 @@
+@@ -167,6 +189,20 @@
              accelerators += ACCELERATOR_SWITCH_IME_FOREWARD;
          }
  
@@ -2826,15 +2827,15 @@ index c159693..63b0cde 100644
          var keybinding_manager = KeybindingManager.get_instance();
  
          foreach (var accelerator in accelerators) {
-@@ -281,6 +317,7 @@
+@@ -299,6 +335,7 @@
              m_config.watch("general/hotkey", "triggers");
              m_config.watch("panel", "custom_font");
              m_config.watch("panel", "use_custom_font");
 +            init_engines_order();
-             update_engines(m_config.get_value("general", "preload_engines"),
-                            m_config.get_value("general", "engines_order"));
-             unbind_switch_shortcut();
-@@ -338,6 +375,200 @@
+             // Update m_use_system_keyboard_layout before update_engines()
+             // is called.
+             set_use_system_keyboard_layout(null);
+@@ -359,6 +396,200 @@
          }
      }
  
@@ -3035,16 +3036,16 @@ index c159693..63b0cde 100644
      private void switch_engine(int i, bool force = false) {
          GLib.assert(i >= 0 && i < m_engines.length);
  
-@@ -352,7 +583,7 @@
-             return;
+@@ -374,7 +605,7 @@
          }
          // set xkb layout
--        exec_setxkbmap(engine);
-+        set_layout(engine);
+         if (!m_use_system_keyboard_layout) {
+-            exec_setxkbmap(engine);
++            set_layout(engine);
+         }
      }
  
-     private void config_value_changed_cb(IBus.Config config,
-@@ -368,6 +599,12 @@
+@@ -391,6 +622,12 @@
              unbind_switch_shortcut();
              bind_switch_shortcut(variant);
              return;

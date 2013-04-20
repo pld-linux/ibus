@@ -9,13 +9,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.1
+Version:	1.5.2
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	f0103201249c657712f5f4d9a36923ed
+# Source0-md5:	1b6b9c91089767762e00f8b5858d1b59
 Source1:	%{name}.xinputd
 Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch1:		%{name}-541492-xkb.patch
@@ -31,7 +31,7 @@ BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
-BuildRequires:	glib2-devel >= 1:2.26.0
+BuildRequires:	glib2-devel >= 1:2.32.0
 BuildRequires:	gobject-introspection-devel >= 0.6.8
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
@@ -43,14 +43,16 @@ BuildRequires:	libgnomekbd-devel
 BuildRequires:	pkgconfig
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
-BuildRequires:	python-pygobject-devel
+BuildRequires:	python-pygobject3 >= 3.0.0
+BuildRequires:	python-pygobject3-common-devel >= 3.0.0
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.596
-%{?with_vala:BuildRequires:	vala >= 2:0.14}
+%{?with_vala:BuildRequires:	vala >= 2:0.16}
 BuildRequires:	xorg-lib-libX11-devel
 BuildRequires:	xorg-lib-libxkbfile-devel
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	GConf2 >= 2.12
+Requires:	dconf >= 0.7.5
 Requires:	dbus >= 1.2.4
 Requires:	gtk-update-icon-cache
 Requires:	hicolor-icon-theme
@@ -78,7 +80,7 @@ szkielet wprowadzania tekstu dla Linuksa.
 Summary:	IBus library
 Summary(pl.UTF-8):	Biblioteka IBus
 Group:		Libraries
-Requires:	glib2 >= 1:2.26.0
+Requires:	glib2 >= 1:2.32.0
 
 %description libs
 This package contains the IBus shared library.
@@ -92,7 +94,7 @@ Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 2.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome2
-Requires(post):	glib2 >= 1:2.26.0
+Requires(post):	glib2 >= 1:2.32.0
 
 %description gtk2
 This package contains IBus im module for GTK+ 2.x.
@@ -106,7 +108,7 @@ Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 3.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome3
-Requires(post):	glib2 >= 1:2.26.0
+Requires(post):	glib2 >= 1:2.32.0
 
 %description gtk3
 This package contains IBus im module for GTK+ 3.x.
@@ -119,7 +121,7 @@ Summary:	Development files for IBus
 Summary(pl.UTF-8):	Pliki programistyczne IBus
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	glib2-devel
+Requires:	glib2-devel >= 1:2.32.0
 
 %description devel
 The ibus-devel package contains the header files for IBus.
@@ -157,7 +159,7 @@ Summary:	Python interface to IBus framework
 Summary(pl.UTF-8):	Pythonowy interfejs do szkieletu IBus
 Group:		Development/Languages/Python
 Requires:	python-dbus >= 0.83.0
-Requires:	python-pygobject
+Requires:	python-pygobject3 >= 3.0.0
 Requires:	python-pygtk-pango
 Requires:	python-pyxdg
 Conflicts:	ibus < 1.4.2
@@ -173,7 +175,7 @@ Summary:	Vala API for ibus library
 Summary(pl.UTF-8):	API języka Vala do biblioteki ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	vala >= 2:0.14
+Requires:	vala >= 2:0.16
 
 %description -n vala-ibus
 Vala API for ibus library.
@@ -185,7 +187,7 @@ API języka Vala do biblioteki ibus.
 Summary:	Bash completion for ibus commands
 Summary(pl.UTF-8):	Bashowe dopełnianie parametrów dla poleceń ibus
 Group:		Applications/Shells
-Requires:	bash-completion
+Requires:	bash-completion >= 2
 
 %description -n bash-completion-ibus
 Bash completion for ibus commands.
@@ -376,4 +378,4 @@ rm -rf $RPM_BUILD_ROOT
 
 %files -n bash-completion-ibus
 %defattr(644,root,root,755)
-/etc/bash_completion.d/ibus.bash
+%{_datadir}/bash-completion/completions/ibus.bash
