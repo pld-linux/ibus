@@ -21,6 +21,7 @@ Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch1:		%{name}-541492-xkb.patch
 Patch2:		%{name}-530711-preload-sys.patch
 Patch3:		%{name}-xx-setup-frequent-lang.patch
+Patch4:		format-security.patch
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
@@ -203,6 +204,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %patch2 -p1
 %patch3 -p1
 %endif
+%patch4 -p1
 
 %build
 %{__libtoolize}
