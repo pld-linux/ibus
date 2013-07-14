@@ -4,13 +4,13 @@
 # Conditional build:
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
-%bcond_without	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
+%bcond_with	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
 #
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.2
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -57,6 +57,7 @@ Requires:	dconf >= 0.7.5
 Requires:	dbus >= 1.2.4
 Requires:	gtk-update-icon-cache
 Requires:	hicolor-icon-theme
+Requires:	ibus-xkb
 Requires:	im-chooser
 Requires:	iso-codes
 Requires:	python-ibus = %{version}-%{release}
