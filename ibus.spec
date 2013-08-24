@@ -9,24 +9,23 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.2
-Release:	2
+Version:	1.5.3
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	1b6b9c91089767762e00f8b5858d1b59
+# Source0-md5:	fdde74794d8a1874f97294e0cd581d14
 Source1:	%{name}.xinputd
 Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch1:		%{name}-541492-xkb.patch
 Patch2:		%{name}-530711-preload-sys.patch
 Patch3:		%{name}-xx-setup-frequent-lang.patch
-Patch4:		format-security.patch
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
-BuildRequires:	automake >= 1:1.10
+BuildRequires:	automake >= 1:1.11.1
 BuildRequires:	dconf-devel >= 0.7.5
 BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
@@ -39,8 +38,9 @@ BuildRequires:	gtk+3-devel >= 3.0
 BuildRequires:	gtk-doc >= 1.9
 BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
+%{?with_ibus_xkb:BuildRequires:	libgnomekbd-devel}
+BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool
-BuildRequires:	libgnomekbd-devel
 BuildRequires:	pkgconfig
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
@@ -50,7 +50,7 @@ BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.596
 %{?with_vala:BuildRequires:	vala >= 2:0.16}
 BuildRequires:	xorg-lib-libX11-devel
-BuildRequires:	xorg-lib-libxkbfile-devel
+%{?with_ibus_xkb:BuildRequires:	xorg-lib-libxkbfile-devel}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	GConf2 >= 2.12
 Requires:	dconf >= 0.7.5
@@ -60,6 +60,7 @@ Requires:	hicolor-icon-theme
 Requires:	ibus-xkb
 Requires:	im-chooser
 Requires:	iso-codes
+Requires:	libnotify >= 0.7
 Requires:	python-ibus = %{version}-%{release}
 Requires:	python-pygtk-gtk
 Requires:	python-pynotify
@@ -205,7 +206,6 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %patch2 -p1
 %patch3 -p1
 %endif
-%patch4 -p1
 
 %build
 %{__libtoolize}
@@ -237,15 +237,12 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/{X11/xinit/xinput.d,xdg/autostart}
+install -d $RPM_BUILD_ROOT%{_sysconfdir}/X11/xinit/xinput.d
 
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
 %{__sed} -e 's|@@LIB@@|%{_lib}|g' %{SOURCE1} >$RPM_BUILD_ROOT%{_sysconfdir}/X11/xinit/xinput.d/ibus.conf
-
-# correct location in upstream.
-mv $RPM_BUILD_ROOT{%{_desktopdir},%{_sysconfdir}/xdg/autostart}/ibus.desktop
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/gtk*/*/immodules/*.la
@@ -256,9 +253,6 @@ mv $RPM_BUILD_ROOT{%{_desktopdir},%{_sysconfdir}/xdg/autostart}/ibus.desktop
 %py_postclean
 
 %find_lang %{name}10
-
-# imsettings will start this daemon for us
-%{__rm} $RPM_BUILD_ROOT/etc/xdg/autostart/ibus.desktop
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -332,6 +326,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_desktopdir}/ibus-setup.desktop
 %{_iconsdir}/hicolor/*/apps/ibus-*.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
+%{_mandir}/man1/ibus.1*
+%{_mandir}/man1/ibus-daemon.1*
+%{_mandir}/man1/ibus-setup.1*
 
 %files libs
 %defattr(644,root,root,755)
