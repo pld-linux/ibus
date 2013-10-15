@@ -4,18 +4,19 @@
 # Conditional build:
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
+%bcond_without	wayland		# Wayland client
 %bcond_with	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
 #
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.3
+Version:	1.5.4
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
 Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	fdde74794d8a1874f97294e0cd581d14
+# Source0-md5:	6ce27a692d2d4881e9898f3798dcf91c
 Source1:	%{name}.xinputd
 Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
 Patch1:		%{name}-541492-xkb.patch
@@ -32,7 +33,7 @@ BuildRequires:	dbus-glib-devel
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
 BuildRequires:	glib2-devel >= 1:2.32.0
-BuildRequires:	gobject-introspection-devel >= 0.6.8
+BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
 BuildRequires:	gtk-doc >= 1.9
@@ -49,11 +50,13 @@ BuildRequires:	python-pygobject3-common-devel >= 3.0.0
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.596
 %{?with_vala:BuildRequires:	vala >= 2:0.16}
+# wayland-client
+%{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
 BuildRequires:	xorg-lib-libX11-devel
+%{?with_wayland:BuildRequires:	xorg-lib-libxkbcommon-devel}
 %{?with_ibus_xkb:BuildRequires:	xorg-lib-libxkbfile-devel}
+Requires:	%{name}-conf = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	GConf2 >= 2.12
-Requires:	dconf >= 0.7.5
 Requires:	dbus >= 1.2.4
 Requires:	gtk-update-icon-cache
 Requires:	hicolor-icon-theme
@@ -66,7 +69,6 @@ Requires:	python-pygtk-gtk
 Requires:	python-pynotify
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
-Requires(post,preun):	GConf2
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_libexecdir	%{_libdir}/ibus
@@ -79,17 +81,35 @@ OS.
 IBus (Intelligent Input Bus) to inteligentna szyna wejściowa. Jest to
 szkielet wprowadzania tekstu dla Linuksa.
 
-%package libs
-Summary:	IBus library
-Summary(pl.UTF-8):	Biblioteka IBus
+%package dconf
+Summary:	IBus configuration module using DConf
+Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm DConf
 Group:		Libraries
-Requires:	glib2 >= 1:2.32.0
+Requires(post,postun):	glib2 >= 1:2.32
+Requires:	dconf >= 0.7.5
+Requires:	%{name} = %{version}-%{release}
+Provides:	%{name}-dconf = %{version}-%{release}
 
-%description libs
-This package contains the IBus shared library.
+%description dconf
+IBus configuration module using DConf.
 
-%description libs -l pl.UTF-8
-Ten pakiet zawiera bibliotekę współdzieloną IBus.
+%description dconf -l pl.UTF-8
+Moduł konfiguracji IBus wykorzystujący mechanizm DConf.
+
+%package gconf
+Summary:	IBus configuration module using GConf
+Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm GConf
+Group:		Libraries
+Requires(post,postun):	GConf2 >= 2.12
+Requires:	%{name} = %{version}-%{release}
+Requires:	GConf2 >= 2.12
+Provides:	%{name}-dconf = %{version}-%{release}
+
+%description gconf
+IBus configuration module using GConf.
+
+%description gconf -l pl.UTF-8
+Moduł konfiguracji IBus wykorzystujący mechanizm GConf.
 
 %package gtk2
 Summary:	IBus im module for GTK+ 2.x
@@ -118,6 +138,31 @@ This package contains IBus im module for GTK+ 3.x.
 
 %description gtk3 -l pl.UTF-8
 Ten pakiet zawiera moduł im IBus dla GTK+ 3.x.
+
+%package wayland
+Summary:	Wayland im protocol support for IBus
+Summary(pl.UTF-8):	Obsługa protokołu im Waylanda dla systemu IBus
+Group:		Libraries
+Requires:	%{name} = %{version}-%{release}
+Requires:	wayland >= 1.2.0
+
+%description wayland
+Wayland im protocol support for IBus.
+
+%description wayland -l pl.UTF-8
+Obsługa protokołu im Waylanda dla systemu IBus.
+
+%package libs
+Summary:	IBus library
+Summary(pl.UTF-8):	Biblioteka IBus
+Group:		Libraries
+Requires:	glib2 >= 1:2.32.0
+
+%description libs
+This package contains the IBus shared library.
+
+%description libs -l pl.UTF-8
+Ten pakiet zawiera bibliotekę współdzieloną IBus.
 
 %package devel
 Summary:	Development files for IBus
@@ -216,8 +261,8 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %configure \
 	--disable-gtk-doc \
 	--disable-silent-rules \
-	--enable-gconf \
 	--enable-dconf \
+	--enable-gconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
@@ -226,6 +271,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
 	--enable-vala%{!?with_vala:=no} \
+	%{?with_wayland:--enable-wayland} \
 	--enable-xim \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
@@ -259,18 +305,21 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 %update_icon_cache hicolor
-%gconf_schema_install ibus.schemas
-%glib_compile_schemas
-
-%preun
-%gconf_schema_uninstall ibus.schemas
-%glib_compile_schemas
 
 %postun
 %update_icon_cache hicolor
 
-%post	libs -p /sbin/ldconfig
-%postun	libs -p /sbin/ldconfig
+%post dconf
+%glib_compile_schemas
+
+%postun dconf
+%glib_compile_schemas
+
+%post gconf
+%gconf_schema_install ibus.schemas
+
+%preun gconf
+%gconf_schema_uninstall ibus.schemas
 
 %post gtk2
 %if "%{_lib}" != "lib"
@@ -300,29 +349,30 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/gtk-query-immodules-3.0 --update-cache
 %endif
 
+%post	libs -p /sbin/ldconfig
+%postun	libs -p /sbin/ldconfig
+
 %files -f %{name}10.lang
 %defattr(644,root,root,755)
 %doc AUTHORS README
 %config(noreplace) %verify(not md5 mtime size) /etc/X11/xinit/xinput.d/ibus.conf
-%dir %{_sysconfdir}/dconf/db/ibus.d
-%{_sysconfdir}/dconf/db/ibus.d/00-upstream-settings
-%{_sysconfdir}/dconf/profile/ibus
-%{_sysconfdir}/gconf/schemas/ibus.schemas
 %attr(755,root,root) %{_bindir}/ibus
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
 %dir %{_libexecdir}
-%attr(755,root,root) %{_libexecdir}/ibus-dconf
 %attr(755,root,root) %{_libexecdir}/ibus-engine-simple
-%attr(755,root,root) %{_libexecdir}/ibus-gconf
 %attr(755,root,root) %{_libexecdir}/ibus-ui-gtk3
 %attr(755,root,root) %{_libexecdir}/ibus-x11
 %if %{with ibus_xkb}
 %attr(755,root,root) %{_libexecdir}/ibus-xkb
 %endif
-%{_datadir}/ibus
-%{_datadir}/GConf/gsettings/ibus.convert
-%{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
+%dir %{_datadir}/ibus
+%dir %{_datadir}/ibus/component
+%{_datadir}/ibus/component/gtkpanel.xml
+%{_datadir}/ibus/component/simple.xml
+%{_datadir}/ibus/engine
+%{_datadir}/ibus/keymaps
+%{_datadir}/ibus/setup
 %{_desktopdir}/ibus-setup.desktop
 %{_iconsdir}/hicolor/*/apps/ibus-*.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
@@ -330,11 +380,21 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/ibus-daemon.1*
 %{_mandir}/man1/ibus-setup.1*
 
-%files libs
+%files dconf
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libibus-1.0.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libibus-1.0.so.5
-%{_libdir}/girepository-1.0/IBus-1.0.typelib
+%attr(755,root,root) %{_libexecdir}/ibus-dconf
+%{_datadir}/ibus/component/dconf.xml
+%dir %{_sysconfdir}/dconf/db/ibus.d
+%{_sysconfdir}/dconf/db/ibus.d/00-upstream-settings
+%{_sysconfdir}/dconf/profile/ibus
+%{_datadir}/GConf/gsettings/ibus.convert
+%{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
+
+%files gconf
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_libexecdir}/ibus-gconf
+%{_datadir}/ibus/component/gconf.xml
+%{_sysconfdir}/gconf/schemas/ibus.schemas
 
 %files gtk2
 %defattr(644,root,root,755)
@@ -343,6 +403,16 @@ rm -rf $RPM_BUILD_ROOT
 %files gtk3
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/gtk-3.0/*/immodules/im-ibus.so
+
+%files wayland
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_libexecdir}/ibus-wayland
+
+%files libs
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_libdir}/libibus-1.0.so.*.*.*
+%attr(755,root,root) %ghost %{_libdir}/libibus-1.0.so.5
+%{_libdir}/girepository-1.0/IBus-1.0.typelib
 
 %files devel
 %defattr(644,root,root,755)
