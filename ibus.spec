@@ -11,7 +11,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.4
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -88,7 +88,7 @@ Group:		Libraries
 Requires(post,postun):	glib2 >= 1:2.32
 Requires:	dconf >= 0.7.5
 Requires:	%{name} = %{version}-%{release}
-Provides:	%{name}-dconf = %{version}-%{release}
+Provides:	%{name}-conf = %{version}-%{release}
 
 %description dconf
 IBus configuration module using DConf.
@@ -103,7 +103,7 @@ Group:		Libraries
 Requires(post,postun):	GConf2 >= 2.12
 Requires:	%{name} = %{version}-%{release}
 Requires:	GConf2 >= 2.12
-Provides:	%{name}-dconf = %{version}-%{release}
+Provides:	%{name}-conf = %{version}-%{release}
 
 %description gconf
 IBus configuration module using GConf.
