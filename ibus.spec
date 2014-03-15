@@ -236,6 +236,9 @@ Summary:	Bash completion for ibus commands
 Summary(pl.UTF-8):	Bashowe dopełnianie parametrów dla poleceń ibus
 Group:		Applications/Shells
 Requires:	bash-completion >= 2
+%if "%{_rpmversion}" >= "5"
+BuildArch:	noarch
+%endif
 
 %description -n bash-completion-ibus
 Bash completion for ibus commands.
