@@ -6,12 +6,12 @@
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
 %bcond_with	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
-#
+
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.5
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -27,9 +27,9 @@ BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.11.1
-BuildRequires:	dconf-devel >= 0.7.5
 BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
+BuildRequires:	dconf-devel >= 0.7.5
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-devel
 BuildRequires:	glib2-devel >= 1:2.32.0
@@ -86,8 +86,8 @@ Summary:	IBus configuration module using DConf
 Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm DConf
 Group:		Libraries
 Requires(post,postun):	glib2 >= 1:2.32
-Requires:	dconf >= 0.7.5
 Requires:	%{name} = %{version}-%{release}
+Requires:	dconf >= 0.7.5
 Provides:	%{name}-conf = %{version}-%{release}
 
 %description dconf
@@ -195,6 +195,9 @@ Summary(pl.UTF-8):	Dokumentacja programisty dla szkieletu IBus
 Group:		Development/Libraries
 Requires:	gtk-doc-common
 Conflicts:	ibus-devel < 1.4.2
+%if "%{_rpmversion}" >= "5"
+BuildArch:	noarch
+%endif
 
 %description apidocs
 Development documentation for IBus.
