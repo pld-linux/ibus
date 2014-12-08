@@ -63,7 +63,7 @@ Requires:	libnotify >= 0.7
 Requires:	python-ibus = %{version}-%{release}
 Requires:	python-pygtk-gtk
 Requires:	python-pynotify
-Requires:       xorg-app-setxkbmap
+Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
