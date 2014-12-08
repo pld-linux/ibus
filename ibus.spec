@@ -10,7 +10,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.9
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -66,6 +66,7 @@ Requires:	python-pynotify
 Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
+Obsoletes:	ibus-xkb
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_libexecdir	%{_libdir}/ibus
@@ -154,6 +155,7 @@ Summary:	IBus library
 Summary(pl.UTF-8):	Biblioteka IBus
 Group:		Libraries
 Requires:	glib2 >= 1:2.32.0
+Obsoletes:	ibus-xkb-libs
 
 %description libs
 This package contains the IBus shared library.
@@ -167,6 +169,7 @@ Summary(pl.UTF-8):	Pliki programistyczne IBus
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	glib2-devel >= 1:2.32.0
+Obsoletes:	ibus-xkb-devel
 
 %description devel
 The ibus-devel package contains the header files for IBus.
@@ -179,6 +182,7 @@ Summary:	Static ibus library
 Summary(pl.UTF-8):	Biblioteka statyczna ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
+Obsoletes:	ibus-xkb-static
 
 %description static
 Static ibus library.
