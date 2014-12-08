@@ -5,23 +5,22 @@
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
-%bcond_with	ibus_xkb	# XKB backend (available also in ibus-xkb module?) and Fedora patches
 
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.5
-Release:	2
+Version:	1.5.9
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
-Source0:	http://ibus.googlecode.com/files/%{name}-%{version}.tar.gz
-# Source0-md5:	59b8d2fbed3ceb14edac130f882ccfd4
+Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
+# Source0-md5:	a6e820db4fe3d82c825398f1ed19c77e
 Source1:	%{name}.xinputd
-Patch0:		%{name}-810211-no-switch-by-no-trigger.patch
-Patch1:		%{name}-541492-xkb.patch
-Patch2:		%{name}-530711-preload-sys.patch
-Patch3:		%{name}-xx-setup-frequent-lang.patch
+Patch0:		%{name}-1136623-lost-by-another-focus.patch
+Patch1:		%{name}-HEAD.patch
+Patch2:		%{name}-xx-increase-timeout.patch
+Patch3:		python-path.patch
 URL:		http://code.google.com/p/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
@@ -39,7 +38,6 @@ BuildRequires:	gtk+3-devel >= 3.0
 BuildRequires:	gtk-doc >= 1.9
 BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
-%{?with_ibus_xkb:BuildRequires:	libgnomekbd-devel}
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool
 BuildRequires:	pkgconfig
@@ -54,19 +52,18 @@ BuildRequires:	rpmbuild(macros) >= 1.596
 %{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
 BuildRequires:	xorg-lib-libX11-devel
 %{?with_wayland:BuildRequires:	xorg-lib-libxkbcommon-devel}
-%{?with_ibus_xkb:BuildRequires:	xorg-lib-libxkbfile-devel}
 Requires:	%{name}-conf = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	dbus >= 1.2.4
 Requires:	gtk-update-icon-cache
 Requires:	hicolor-icon-theme
-Requires:	ibus-xkb
 Requires:	im-chooser
 Requires:	iso-codes
 Requires:	libnotify >= 0.7
 Requires:	python-ibus = %{version}-%{release}
 Requires:	python-pygtk-gtk
 Requires:	python-pynotify
+Requires:       xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
@@ -252,11 +249,9 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %prep
 %setup -q
 %patch0 -p1
-%if %{with ibus_xkb}
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
-%endif
 
 %build
 %{__libtoolize}
@@ -272,7 +267,6 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
-	%{?with_ibus_xkb:--enable-libgnomekbd} \
 	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
@@ -280,8 +274,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	%{?with_wayland:--enable-wayland} \
 	--enable-xim \
 	--with-html-dir=%{_gtkdocdir} \
-	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
-	%{?with_ibus_xkb:--with-xkb-command=ibus-xkb}
+	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*'
 
 %{__make} -C ui/gtk3 maintainer-clean-generic
 
@@ -369,9 +362,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libexecdir}/ibus-engine-simple
 %attr(755,root,root) %{_libexecdir}/ibus-ui-gtk3
 %attr(755,root,root) %{_libexecdir}/ibus-x11
-%if %{with ibus_xkb}
-%attr(755,root,root) %{_libexecdir}/ibus-xkb
-%endif
 %dir %{_datadir}/ibus
 %dir %{_datadir}/ibus/component
 %{_datadir}/ibus/component/gtkpanel.xml

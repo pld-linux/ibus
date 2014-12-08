@@ -1,0 +1,24 @@
+--- ibus-1.5.8/client/gtk2/ibusimcontext.c.orig	2014-10-16 18:35:07.229056767 +0900
++++ ibus-1.5.8/client/gtk2/ibusimcontext.c	2014-10-17 12:36:29.138998318 +0900
+@@ -857,12 +857,7 @@ ibus_im_context_focus_in (GtkIMContext *
+         }
+     }
+ 
+-    if (_focus_im_context != NULL) {
+-        g_assert (_focus_im_context != context);
+-        gtk_im_context_focus_out (_focus_im_context);
+-        g_assert (_focus_im_context == NULL);
+-    }
+-    else {
++    if (_focus_im_context == NULL) {
+         /* focus out fake context */
+         if (_fake_context != NULL) {
+             ibus_input_context_focus_out (_fake_context);
+@@ -903,7 +898,6 @@ ibus_im_context_focus_out (GtkIMContext
+         return;
+     }
+ 
+-    g_assert (context == _focus_im_context);
+     g_object_remove_weak_pointer ((GObject *) context,
+                                   (gpointer *) &_focus_im_context);
+     _focus_im_context = NULL;
