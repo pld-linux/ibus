@@ -10,7 +10,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.9
-Release:	4
+Release:	5
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: http://code.google.com/p/ibus/downloads/list
@@ -46,7 +46,7 @@ BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject3 >= 3.0.0
 BuildRequires:	python-pygobject3-common-devel >= 3.0.0
 BuildRequires:	rpm-pythonprov
-BuildRequires:	rpmbuild(macros) >= 1.596
+BuildRequires:	rpmbuild(macros) >= 1.673
 %{?with_vala:BuildRequires:	vala >= 2:0.16}
 # wayland-client
 %{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
@@ -228,6 +228,9 @@ Summary(pl.UTF-8):	API języka Vala do biblioteki ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 Requires:	vala >= 2:0.16
+%if "%{_rpmversion}" >= "5"
+BuildArch:	noarch
+%endif
 
 %description -n vala-ibus
 Vala API for ibus library.
@@ -448,4 +451,4 @@ rm -rf $RPM_BUILD_ROOT
 
 %files -n bash-completion-ibus
 %defattr(644,root,root,755)
-%{_datadir}/bash-completion/completions/ibus.bash
+%{bash_compdir}/ibus.bash
