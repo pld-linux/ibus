@@ -9,19 +9,16 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.9
-Release:	5
+Version:	1.5.13
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
-#Source0Download: http://code.google.com/p/ibus/downloads/list
+#Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	a6e820db4fe3d82c825398f1ed19c77e
+# Source0-md5:	314c5e4fbfa7a52e6bbe4d1fe87c33f4
 Source1:	%{name}.xinputd
-Patch0:		%{name}-1136623-lost-by-another-focus.patch
-Patch1:		%{name}-HEAD.patch
-Patch2:		%{name}-xx-increase-timeout.patch
-Patch3:		python-path.patch
-URL:		http://code.google.com/p/ibus/
+Patch0:		python-path.patch
+URL:		https://github.com/ibus/ibus/
 BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
@@ -256,9 +253,6 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 %prep
 %setup -q
 %patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
 
 %build
 %{__libtoolize}
