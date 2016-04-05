@@ -10,7 +10,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.13
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
@@ -42,6 +42,8 @@ BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject3 >= 3.0.0
 BuildRequires:	python-pygobject3-common-devel >= 3.0.0
+BuildRequires:	python3 >= 1:3.2
+BuildRequires:	python3-pygobject3 >= 3.0.0
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.673
 %{?with_vala:BuildRequires:	vala >= 2:0.16}
@@ -204,9 +206,10 @@ Development documentation for IBus.
 Dokumentacja programisty dla szkieletu IBus.
 
 %package -n python-ibus
-Summary:	Python interface to IBus framework
-Summary(pl.UTF-8):	Pythonowy interfejs do szkieletu IBus
+Summary:	Python 2 interfaces to IBus framework
+Summary(pl.UTF-8):	Interfejsy Pythona 2 do szkieletu IBus
 Group:		Development/Languages/Python
+Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python-dbus >= 0.83.0
 Requires:	python-pygobject3 >= 3.0.0
 Requires:	python-pygtk-pango
@@ -214,10 +217,23 @@ Requires:	python-pyxdg
 Conflicts:	ibus < 1.4.2
 
 %description -n python-ibus
-Python interface to IBus framework.
+Python 2 interfaces to IBus framework.
 
 %description -n python-ibus -l pl.UTF-8
-Pythonowy interfejs do szkieletu IBus.
+Interfejsy Pythona 2 do szkieletu IBus.
+
+%package -n python3-ibus
+Summary:	Python 3 interface to IBus framework
+Summary(pl.UTF-8):	Interfejs Pythona 3 do szkieletu IBus
+Group:		Development/Languages/Python
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	python3-pygobject3 >= 3.0.0
+
+%description -n python3-ibus
+Python 3 interface to IBus framework.
+
+%description -n python3-ibus -l pl.UTF-8
+Interfejs Pythona 3 interfejs do szkieletu IBus.
 
 %package -n vala-ibus
 Summary:	Vala API for ibus library
@@ -275,7 +291,8 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	%{?with_wayland:--enable-wayland} \
 	--enable-xim \
 	--with-html-dir=%{_gtkdocdir} \
-	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*'
+	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
+	--with-python=%{__python3}
 
 %{__make} -C ui/gtk3 maintainer-clean-generic
 
@@ -435,6 +452,11 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{py_sitescriptdir}/ibus/interface
 %{py_sitescriptdir}/ibus/interface/*.py[co]
 %{py_sitedir}/gi/overrides/IBus.py[co]
+
+%files -n python3-ibus
+%defattr(644,root,root,755)
+%{py3_sitedir}/gi/overrides/IBus.py
+%{py3_sitedir}/gi/overrides/__pycache__/IBus.cpython-*.py[co]
 
 %if %{with vala}
 %files -n vala-ibus
