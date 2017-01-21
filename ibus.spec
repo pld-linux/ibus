@@ -2,6 +2,7 @@
 # - clean .py in %{_datadir}/{setup,ui/gtk} if possible
 #
 # Conditional build:
+%bcond_without	emoji		# Emoji dictionary
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
@@ -9,23 +10,24 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.13
-Release:	3
+Version:	1.5.14
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	314c5e4fbfa7a52e6bbe4d1fe87c33f4
+# Source0-md5:	debfafff1823952b69b248462f7a89a5
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
 BuildRequires:	GConf2-devel >= 2.12
+BuildRequires:	Qt5Gui-devel >= 5.4
 BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.11.1
 BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
-BuildRequires:	dconf-devel >= 0.7.5
+BuildRequires:	dconf-devel >= 0.13.4
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-tools
 BuildRequires:	glib2-devel >= 1:2.32.0
@@ -33,10 +35,12 @@ BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
 BuildRequires:	gtk-doc >= 1.9
+%{?with_emoji:BuildRequires:	json-glib-devel}
 BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
 BuildRequires:	libnotify-devel >= 0.7
-BuildRequires:	libtool
+BuildRequires:	libtool >= 2:2
+%{?with_emoji:BuildRequires:	nodejs-emojione}
 BuildRequires:	pkgconfig
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
@@ -46,7 +50,7 @@ BuildRequires:	python3 >= 1:3.2
 BuildRequires:	python3-pygobject3 >= 3.0.0
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.673
-%{?with_vala:BuildRequires:	vala >= 2:0.16}
+%{?with_vala:BuildRequires:	vala >= 2:0.20}
 # wayland-client
 %{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
 BuildRequires:	xorg-lib-libX11-devel
@@ -84,7 +88,7 @@ Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm DConf
 Group:		Libraries
 Requires(post,postun):	glib2 >= 1:2.32
 Requires:	%{name} = %{version}-%{release}
-Requires:	dconf >= 0.7.5
+Requires:	dconf >= 0.13.4
 Provides:	%{name}-conf = %{version}-%{release}
 
 %description dconf
@@ -240,7 +244,7 @@ Summary:	Vala API for ibus library
 Summary(pl.UTF-8):	API języka Vala do biblioteki ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	vala >= 2:0.16
+Requires:	vala >= 2:0.20
 %if "%{_rpmversion}" >= "5"
 BuildArch:	noarch
 %endif
@@ -280,6 +284,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--disable-gtk-doc \
 	--disable-silent-rules \
 	--enable-dconf \
+	%{!?with_emoji:--disable-emoji-dict} \
 	--enable-gconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
@@ -290,6 +295,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-vala%{!?with_vala:=no} \
 	%{?with_wayland:--enable-wayland} \
 	--enable-xim \
+	--with-emoji-json-file=%{nodejs_libdir}/emojione/emoji.json \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
 	--with-python=%{__python3}
@@ -384,9 +390,14 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_datadir}/ibus/component
 %{_datadir}/ibus/component/gtkpanel.xml
 %{_datadir}/ibus/component/simple.xml
+%dir %{_datadir}/ibus/dicts
+%if %{with emoji}
+%{_datadir}/ibus/dicts/emoji.dict
+%endif
 %{_datadir}/ibus/engine
 %{_datadir}/ibus/keymaps
 %{_datadir}/ibus/setup
+%{_datadir}/dbus-1/services/org.freedesktop.IBus.service
 %{_desktopdir}/ibus-setup.desktop
 %{_iconsdir}/hicolor/*/apps/ibus-*.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
