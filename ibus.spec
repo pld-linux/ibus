@@ -2,7 +2,7 @@
 # - clean .py in %{_datadir}/{setup,ui/gtk} if possible
 #
 # Conditional build:
-%bcond_without	emoji		# Emoji dictionary
+%bcond_with	emoji		# Emoji dictionary
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
@@ -11,7 +11,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.14
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
