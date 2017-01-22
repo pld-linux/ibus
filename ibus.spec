@@ -11,7 +11,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.14
-Release:	2
+Release:	3
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
@@ -390,8 +390,8 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_datadir}/ibus/component
 %{_datadir}/ibus/component/gtkpanel.xml
 %{_datadir}/ibus/component/simple.xml
-%dir %{_datadir}/ibus/dicts
 %if %{with emoji}
+%dir %{_datadir}/ibus/dicts
 %{_datadir}/ibus/dicts/emoji.dict
 %endif
 %{_datadir}/ibus/engine
