@@ -2,7 +2,6 @@
 # - clean .py in %{_datadir}/{setup,ui/gtk} if possible
 #
 # Conditional build:
-%bcond_with	emoji		# Emoji dictionary
 %bcond_without	static_libs	# don't build static library
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
@@ -10,37 +9,35 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.14
-Release:	4
+Version:	1.5.20
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	debfafff1823952b69b248462f7a89a5
+# Source0-md5:	f4966898b6a87b3a5e1f723317e91811
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
-BuildRequires:	GConf2-devel >= 2.12
 BuildRequires:	Qt5Gui-devel >= 5.4
 BuildRequires:	atk-devel
 BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.11.1
+BuildRequires:	cldr-emoji-annotation
 BuildRequires:	dbus-devel
 BuildRequires:	dbus-glib-devel
 BuildRequires:	dconf-devel >= 0.13.4
 BuildRequires:	desktop-file-utils
-BuildRequires:	gettext-tools
-BuildRequires:	glib2-devel >= 1:2.32.0
+BuildRequires:	gettext-tools >= 0.19.8
+BuildRequires:	glib2-devel >= 1:2.46.0
 BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.0
 BuildRequires:	gtk-doc >= 1.9
-%{?with_emoji:BuildRequires:	json-glib-devel}
 BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool >= 2:2
-%{?with_emoji:BuildRequires:	nodejs-emojione}
 BuildRequires:	pkgconfig
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
@@ -50,6 +47,10 @@ BuildRequires:	python3 >= 1:3.2
 BuildRequires:	python3-pygobject3 >= 3.0.0
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.673
+# emoji-test.txt
+BuildRequires:	unicode-emoji >= 4.0
+# Blocks.txt, NamesList.txt
+BuildRequires:	unicode-ucd
 %{?with_vala:BuildRequires:	vala >= 2:0.20}
 # wayland-client
 %{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
@@ -69,6 +70,7 @@ Requires:	python-pynotify
 Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
+Obsoletes:	ibus-gconf
 Obsoletes:	ibus-xkb
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -86,7 +88,7 @@ szkielet wprowadzania tekstu dla Linuksa.
 Summary:	IBus configuration module using DConf
 Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm DConf
 Group:		Libraries
-Requires(post,postun):	glib2 >= 1:2.32
+Requires(post,postun):	glib2 >= 1:2.46.0
 Requires:	%{name} = %{version}-%{release}
 Requires:	dconf >= 0.13.4
 Provides:	%{name}-conf = %{version}-%{release}
@@ -97,28 +99,13 @@ IBus configuration module using DConf.
 %description dconf -l pl.UTF-8
 Moduł konfiguracji IBus wykorzystujący mechanizm DConf.
 
-%package gconf
-Summary:	IBus configuration module using GConf
-Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm GConf
-Group:		Libraries
-Requires(post,postun):	GConf2 >= 2.12
-Requires:	%{name} = %{version}-%{release}
-Requires:	GConf2 >= 2.12
-Provides:	%{name}-conf = %{version}-%{release}
-
-%description gconf
-IBus configuration module using GConf.
-
-%description gconf -l pl.UTF-8
-Moduł konfiguracji IBus wykorzystujący mechanizm GConf.
-
 %package gtk2
 Summary:	IBus im module for GTK+ 2.x
 Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 2.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome2
-Requires(post):	glib2 >= 1:2.32.0
+Requires(post):	glib2 >= 1:2.46.0
 
 %description gtk2
 This package contains IBus im module for GTK+ 2.x.
@@ -132,7 +119,7 @@ Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 3.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome3
-Requires(post):	glib2 >= 1:2.32.0
+Requires(post):	glib2 >= 1:2.46.0
 
 %description gtk3
 This package contains IBus im module for GTK+ 3.x.
@@ -157,7 +144,7 @@ Obsługa protokołu im Waylanda dla systemu IBus.
 Summary:	IBus library
 Summary(pl.UTF-8):	Biblioteka IBus
 Group:		Libraries
-Requires:	glib2 >= 1:2.32.0
+Requires:	glib2 >= 1:2.46.0
 Obsoletes:	ibus-xkb-libs
 
 %description libs
@@ -171,7 +158,7 @@ Summary:	Development files for IBus
 Summary(pl.UTF-8):	Pliki programistyczne IBus
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	glib2-devel >= 1:2.32.0
+Requires:	glib2-devel >= 1:2.46.0
 Obsoletes:	ibus-xkb-devel
 
 %description devel
@@ -284,8 +271,6 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--disable-gtk-doc \
 	--disable-silent-rules \
 	--enable-dconf \
-	%{!?with_emoji:--disable-emoji-dict} \
-	--enable-gconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
 	--enable-introspection \
@@ -295,7 +280,6 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-vala%{!?with_vala:=no} \
 	%{?with_wayland:--enable-wayland} \
 	--enable-xim \
-	--with-emoji-json-file=%{nodejs_libdir}/emojione/emoji.json \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-no-snooper-apps='gnome-do,Do.*,firefox.*,.*chrome.*,.*chromium.*' \
 	--with-python=%{__python3}
@@ -338,12 +322,6 @@ rm -rf $RPM_BUILD_ROOT
 %postun dconf
 %glib_compile_schemas
 
-%post gconf
-%gconf_schema_install ibus.schemas
-
-%preun gconf
-%gconf_schema_uninstall ibus.schemas
-
 %post gtk2
 %if "%{_lib}" != "lib"
 %{_bindir}/gtk-query-immodules-2.0-64 > %{_sysconfdir}/gtk64-2.0/gtk.immodules
@@ -384,26 +362,33 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/ibus-setup
 %dir %{_libexecdir}
 %attr(755,root,root) %{_libexecdir}/ibus-engine-simple
+%attr(755,root,root) %{_libexecdir}/ibus-extension-gtk3
+%attr(755,root,root) %{_libexecdir}/ibus-portal
+%attr(755,root,root) %{_libexecdir}/ibus-ui-emojier
 %attr(755,root,root) %{_libexecdir}/ibus-ui-gtk3
 %attr(755,root,root) %{_libexecdir}/ibus-x11
 %dir %{_datadir}/ibus
 %dir %{_datadir}/ibus/component
+%{_datadir}/ibus/component/gtkextension.xml
 %{_datadir}/ibus/component/gtkpanel.xml
 %{_datadir}/ibus/component/simple.xml
-%if %{with emoji}
-%dir %{_datadir}/ibus/dicts
-%{_datadir}/ibus/dicts/emoji.dict
-%endif
+%{_datadir}/ibus/dicts
 %{_datadir}/ibus/engine
 %{_datadir}/ibus/keymaps
 %{_datadir}/ibus/setup
 %{_datadir}/dbus-1/services/org.freedesktop.IBus.service
-%{_desktopdir}/ibus-setup.desktop
-%{_iconsdir}/hicolor/*/apps/ibus-*.png
+%{_datadir}/dbus-1/services/org.freedesktop.portal.IBus.service
+%{_desktopdir}/org.freedesktop.IBus.Panel.Emojier.desktop
+%{_desktopdir}/org.freedesktop.IBus.Panel.Extension.Gtk3.desktop
+%{_desktopdir}/org.freedesktop.IBus.Setup.desktop
+%{_iconsdir}/hicolor/*x*/apps/ibus-keyboard.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
 %{_mandir}/man1/ibus.1*
 %{_mandir}/man1/ibus-daemon.1*
 %{_mandir}/man1/ibus-setup.1*
+%{_mandir}/man5/00-upstream-settings.5*
+%{_mandir}/man5/ibus.5*
+%{_mandir}/man7/ibus-emoji.7*
 
 %files dconf
 %defattr(644,root,root,755)
@@ -414,12 +399,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/dconf/profile/ibus
 %{_datadir}/GConf/gsettings/ibus.convert
 %{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
-
-%files gconf
-%defattr(644,root,root,755)
-%attr(755,root,root) %{_libexecdir}/ibus-gconf
-%{_datadir}/ibus/component/gconf.xml
-%{_sysconfdir}/gconf/schemas/ibus.schemas
 
 %files gtk2
 %defattr(644,root,root,755)
