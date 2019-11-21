@@ -9,13 +9,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.20
-Release:	3
+Version:	1.5.21
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	f4966898b6a87b3a5e1f723317e91811
+# Source0-md5:	12c5b2e6e9e36fbe8a9f7a2a0501f0e7
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
@@ -50,7 +50,7 @@ BuildRequires:	rpmbuild(macros) >= 1.673
 # emoji-test.txt
 BuildRequires:	unicode-emoji >= 4.0
 # Blocks.txt, NamesList.txt
-BuildRequires:	unicode-ucd
+BuildRequires:	unicode-ucd >= 12.0
 %{?with_vala:BuildRequires:	vala >= 2:0.20}
 # wayland-client
 %{?with_wayland:BuildRequires:	wayland-devel >= 1.2.0}
@@ -421,9 +421,11 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libibus-1.0.so
-%{_pkgconfigdir}/ibus-1.0.pc
 %{_includedir}/ibus-1.0
 %{_datadir}/gir-1.0/IBus-1.0.gir
+%{_pkgconfigdir}/ibus-1.0.pc
+%{_datadir}/gettext/its/ibus.its
+%{_datadir}/gettext/its/ibus.loc
 
 %if %{with static_libs}
 %files static
