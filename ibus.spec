@@ -9,13 +9,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.21
+Version:	1.5.22
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	12c5b2e6e9e36fbe8a9f7a2a0501f0e7
+# Source0-md5:	717975f7de5b7a6eb89a5966db3e6c2e
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
@@ -25,16 +25,14 @@ BuildRequires:	autoconf >= 2.62
 BuildRequires:	automake >= 1:1.11.1
 BuildRequires:	cldr-emoji-annotation
 BuildRequires:	dbus-devel
-BuildRequires:	dbus-glib-devel
 BuildRequires:	dconf-devel >= 0.13.4
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-tools >= 0.19.8
 BuildRequires:	glib2-devel >= 1:2.46.0
 BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
-BuildRequires:	gtk+3-devel >= 3.0
+BuildRequires:	gtk+3-devel >= 3.12.0
 BuildRequires:	gtk-doc >= 1.9
-BuildRequires:	intltool >= 0.35.0
 BuildRequires:	iso-codes
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool >= 2:2
@@ -59,6 +57,7 @@ BuildRequires:	xorg-lib-libX11-devel
 Requires:	%{name}-conf = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	dbus >= 1.2.4
+Requires:	gtk+3 >= 3.12.0
 Requires:	gtk-update-icon-cache
 Requires:	hicolor-icon-theme
 Requires:	im-chooser
@@ -120,6 +119,7 @@ Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome3
 Requires(post):	glib2 >= 1:2.46.0
+Requires:	gtk+3 >= 3.12.0
 
 %description gtk3
 This package contains IBus im module for GTK+ 3.x.
