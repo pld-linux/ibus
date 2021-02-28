@@ -186,9 +186,7 @@ Summary(pl.UTF-8):	Dokumentacja programisty dla szkieletu IBus
 Group:		Development/Libraries
 Requires:	gtk-doc-common
 Conflicts:	ibus-devel < 1.4.2
-%if "%{_rpmversion}" >= "5"
 BuildArch:	noarch
-%endif
 
 %description apidocs
 Development documentation for IBus.
@@ -232,9 +230,7 @@ Summary(pl.UTF-8):	API języka Vala do biblioteki ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 Requires:	vala >= 2:0.20
-%if "%{_rpmversion}" >= "5"
 BuildArch:	noarch
-%endif
 
 %description -n vala-ibus
 Vala API for ibus library.
@@ -247,9 +243,7 @@ Summary:	Bash completion for ibus commands
 Summary(pl.UTF-8):	Bashowe dopełnianie parametrów dla poleceń ibus
 Group:		Applications/Shells
 Requires:	bash-completion >= 2
-%if "%{_rpmversion}" >= "5"
 BuildArch:	noarch
-%endif
 
 %description -n bash-completion-ibus
 Bash completion for ibus commands.
