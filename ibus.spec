@@ -9,13 +9,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.22
+Version:	1.5.24
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	717975f7de5b7a6eb89a5966db3e6c2e
+# Source0-md5:	48b91ca9b06a16b090b1794012b2bdcc
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
