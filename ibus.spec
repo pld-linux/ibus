@@ -2,9 +2,10 @@
 # - clean .py in %{_datadir}/{setup,ui/gtk} if possible
 #
 # Conditional build:
-%bcond_without	static_libs	# don't build static library
+%bcond_without	static_libs	# static library
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
+%bcond_without	gtk4		# GTK 4 IM module
 
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
@@ -33,6 +34,7 @@ BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.12.0
 BuildRequires:	gtk-doc >= 1.9
+%{?with_gtk4:BuildRequires:	gtk4-devel >= 4.0}
 BuildRequires:	iso-codes
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool >= 2:2
@@ -126,6 +128,20 @@ This package contains IBus im module for GTK+ 3.x.
 
 %description gtk3 -l pl.UTF-8
 Ten pakiet zawiera moduł im IBus dla GTK+ 3.x.
+
+%package gtk4
+Summary:	IBus im module for GTK 4.x
+Summary(pl.UTF-8):	Moduł im IBus dla GTK 4.x
+Group:		Libraries
+Requires:	%{name} = %{version}-%{release}
+Requires(post):	glib2 >= 1:2.46.0
+Requires:	gtk4 >= 4.0
+
+%description gtk4
+This package contains IBus im module for GTK 4.x.
+
+%description gtk4 -l pl.UTF-8
+Ten pakiet zawiera moduł im IBus dla GTK 4.x.
 
 %package wayland
 Summary:	Wayland im protocol support for IBus
@@ -267,6 +283,7 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-dconf \
 	--enable-gtk2 \
 	--enable-gtk3 \
+	%{?with_gtk4:--enable-gtk4} \
 	--enable-introspection \
 	--enable-python-library \
 	%{?with_static_libs:--enable-static} \
@@ -396,11 +413,17 @@ rm -rf $RPM_BUILD_ROOT
 
 %files gtk2
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/gtk-2.0/*/immodules/im-ibus.so
+%attr(755,root,root) %{_libdir}/gtk-2.0/2.*/immodules/im-ibus.so
 
 %files gtk3
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/gtk-3.0/*/immodules/im-ibus.so
+%attr(755,root,root) %{_libdir}/gtk-3.0/3.*/immodules/im-ibus.so
+
+%if %{with gtk4}
+%files gtk4
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_libdir}/gtk-4.0/4.*/immodules/libim-ibus.so
+%endif
 
 %files wayland
 %defattr(644,root,root,755)
