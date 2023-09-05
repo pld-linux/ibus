@@ -10,13 +10,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.24
-Release:	4
+Version:	1.5.28
+Release:	0.1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	48b91ca9b06a16b090b1794012b2bdcc
+# Source0-md5:	e788203d60e2b9cf56d95f1ee73a6898
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
@@ -65,9 +65,8 @@ Requires:	hicolor-icon-theme
 Requires:	im-chooser
 Requires:	iso-codes
 Requires:	libnotify >= 0.7
-Requires:	python-ibus = %{version}-%{release}
-Requires:	python-pygtk-gtk
-Requires:	python-pynotify
+Requires:	python3-ibus = %{version}-%{release}
+Requires:	python3-pynotify
 Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
@@ -217,6 +216,7 @@ Group:		Development/Languages/Python
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python-dbus >= 0.83.0
 Requires:	python-pygobject3 >= 3.0.0
+Requires:	python-pygtk-gtk
 Requires:	python-pygtk-pango
 Requires:	python-pyxdg
 Conflicts:	ibus < 1.4.2
@@ -323,6 +323,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 %update_icon_cache hicolor
+%systemd_user_post org.freedesktop.IBus.session.generic.service
+
+%preun
+%systemd_user_preun org.freedesktop.IBus.session.generic.service
 
 %postun
 %update_icon_cache hicolor
@@ -371,6 +375,10 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/ibus
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
+%{systemduserunitdir}/org.freedesktop.IBus.session.generic.service
+# TODO: these should go into a separate package or we'll pull GNOME deps
+#%{systemduserunitdir}/gnome-session.target.wants/org.freedesktop.IBus.session.GNOME.service
+#%{systemduserunitdir}/org.freedesktop.IBus.session.GNOME.service
 %dir %{_libexecdir}
 %attr(755,root,root) %{_libexecdir}/ibus-engine-simple
 %attr(755,root,root) %{_libexecdir}/ibus-extension-gtk3
@@ -427,6 +435,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files wayland
 %defattr(644,root,root,755)
+/etc/xdg/Xwayland-session.d/10-ibus-x11
 %attr(755,root,root) %{_libexecdir}/ibus-wayland
 
 %files libs
