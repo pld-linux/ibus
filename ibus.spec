@@ -11,7 +11,7 @@ Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.28
-Release:	0.1
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
@@ -66,7 +66,6 @@ Requires:	im-chooser
 Requires:	iso-codes
 Requires:	libnotify >= 0.7
 Requires:	python3-ibus = %{version}-%{release}
-Requires:	python3-pynotify
 Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
