@@ -45,8 +45,10 @@ BuildRequires:	python-pygobject3 >= 3.0.0
 BuildRequires:	python-pygobject3-common-devel >= 3.0.0
 BuildRequires:	python3 >= 1:3.2
 BuildRequires:	python3-pygobject3 >= 3.0.0
+BuildRequires:	rpm-build >= 4.6
 BuildRequires:	rpm-pythonprov
 BuildRequires:	rpmbuild(macros) >= 1.673
+BuildRequires:	systemd-devel
 # emoji-test.txt
 BuildRequires:	unicode-emoji >= 4.0
 # Blocks.txt, NamesList.txt
@@ -97,6 +99,19 @@ IBus configuration module using DConf.
 
 %description dconf -l pl.UTF-8
 Moduł konfiguracji IBus wykorzystujący mechanizm DConf.
+
+%package gnome
+Summary:	GNOME session IBus service
+Summary(pl.UTF-8):	Usługa IBus dla sesji GNOME
+Group:		X11/Applications
+Requires:	%{name} = %{version}-%{release}
+Requires:	gnome-session >= 1:3
+
+%description gnome
+GNOME session IBus service.
+
+%description gnome -l pl.UTF-8
+Usługa IBus dla sesji GNOME.
 
 %package gtk2
 Summary:	IBus im module for GTK+ 2.x
@@ -336,6 +351,12 @@ rm -rf $RPM_BUILD_ROOT
 %postun dconf
 %glib_compile_schemas
 
+%post gnome
+%systemd_user_post org.freedesktop.IBus.session.GNOME.service
+
+%preun gnome
+%systemd_user_preun org.freedesktop.IBus.session.GNOME.service
+
 %post gtk2
 %if "%{_lib}" != "lib"
 %{_bindir}/gtk-query-immodules-2.0-64 > %{_sysconfdir}/gtk64-2.0/gtk.immodules
@@ -375,9 +396,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/ibus-daemon
 %attr(755,root,root) %{_bindir}/ibus-setup
 %{systemduserunitdir}/org.freedesktop.IBus.session.generic.service
-# TODO: these should go into a separate package or we'll pull GNOME deps
-#%{systemduserunitdir}/gnome-session.target.wants/org.freedesktop.IBus.session.GNOME.service
-#%{systemduserunitdir}/org.freedesktop.IBus.session.GNOME.service
 %dir %{_libexecdir}
 %attr(755,root,root) %{_libexecdir}/ibus-engine-simple
 %attr(755,root,root) %{_libexecdir}/ibus-extension-gtk3
@@ -417,6 +435,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/dconf/profile/ibus
 %{_datadir}/GConf/gsettings/ibus.convert
 %{_datadir}/glib-2.0/schemas/org.freedesktop.ibus.gschema.xml
+
+%files gnome
+%defattr(644,root,root,755)
+%{systemduserunitdir}/gnome-session.target.wants/org.freedesktop.IBus.session.GNOME.service
+%{systemduserunitdir}/org.freedesktop.IBus.session.GNOME.service
 
 %files gtk2
 %defattr(644,root,root,755)
