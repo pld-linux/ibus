@@ -69,8 +69,8 @@ Requires:	python3-ibus = %{version}-%{release}
 Requires:	xorg-app-setxkbmap
 # input-keyboard-symbolic icon
 Suggests:	gnome-icon-theme-symbolic
-Obsoletes:	ibus-gconf
-Obsoletes:	ibus-xkb
+Obsoletes:	ibus-gconf < 1.5.20
+Obsoletes:	ibus-xkb < 1.5.1
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_libexecdir	%{_libdir}/ibus
@@ -159,7 +159,7 @@ Summary:	IBus library
 Summary(pl.UTF-8):	Biblioteka IBus
 Group:		Libraries
 Requires:	glib2 >= 1:2.46.0
-Obsoletes:	ibus-xkb-libs
+Obsoletes:	ibus-xkb-libs < 1.5.1
 
 %description libs
 This package contains the IBus shared library.
@@ -173,7 +173,7 @@ Summary(pl.UTF-8):	Pliki programistyczne IBus
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	glib2-devel >= 1:2.46.0
-Obsoletes:	ibus-xkb-devel
+Obsoletes:	ibus-xkb-devel < 1.5.1
 
 %description devel
 The ibus-devel package contains the header files for IBus.
@@ -186,7 +186,7 @@ Summary:	Static ibus library
 Summary(pl.UTF-8):	Biblioteka statyczna ibus
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
-Obsoletes:	ibus-xkb-static
+Obsoletes:	ibus-xkb-static < 1.5.1
 
 %description static
 Static ibus library.
