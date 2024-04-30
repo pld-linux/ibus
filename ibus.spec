@@ -10,13 +10,13 @@
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
-Version:	1.5.28
+Version:	1.5.29
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
 Source0:	https://github.com/ibus/ibus/releases/download/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	e788203d60e2b9cf56d95f1ee73a6898
+# Source0-md5:	997d158eb448564b4d1713ec7ebba2ad
 Source1:	%{name}.xinputd
 Patch0:		python-path.patch
 URL:		https://github.com/ibus/ibus/
@@ -29,7 +29,7 @@ BuildRequires:	dbus-devel
 BuildRequires:	dconf-devel >= 0.13.4
 BuildRequires:	desktop-file-utils
 BuildRequires:	gettext-tools >= 0.19.8
-BuildRequires:	glib2-devel >= 1:2.46.0
+BuildRequires:	glib2-devel >= 1:2.65.0
 BuildRequires:	gobject-introspection-devel >= 0.9.6
 BuildRequires:	gtk+2-devel >= 2.0
 BuildRequires:	gtk+3-devel >= 3.12.0
@@ -89,7 +89,7 @@ szkielet wprowadzania tekstu dla Linuksa.
 Summary:	IBus configuration module using DConf
 Summary(pl.UTF-8):	Moduł konfiguracji IBus wykorzystujący mechanizm DConf
 Group:		Libraries
-Requires(post,postun):	glib2 >= 1:2.46.0
+Requires(post,postun):	glib2 >= 1:2.65.0
 Requires:	%{name} = %{version}-%{release}
 Requires:	dconf >= 0.13.4
 Provides:	%{name}-conf = %{version}-%{release}
@@ -119,7 +119,7 @@ Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 2.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome2
-Requires(post):	glib2 >= 1:2.46.0
+Requires(post):	glib2 >= 1:2.65.0
 
 %description gtk2
 This package contains IBus im module for GTK+ 2.x.
@@ -133,7 +133,7 @@ Summary(pl.UTF-8):	Moduł im IBus dla GTK+ 3.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	imsettings-gnome3
-Requires(post):	glib2 >= 1:2.46.0
+Requires(post):	glib2 >= 1:2.65.0
 Requires:	gtk+3 >= 3.12.0
 
 %description gtk3
@@ -147,7 +147,7 @@ Summary:	IBus im module for GTK 4.x
 Summary(pl.UTF-8):	Moduł im IBus dla GTK 4.x
 Group:		Libraries
 Requires:	%{name} = %{version}-%{release}
-Requires(post):	glib2 >= 1:2.46.0
+Requires(post):	glib2 >= 1:2.65.0
 Requires:	gtk4 >= 4.0
 
 %description gtk4
@@ -173,7 +173,7 @@ Obsługa protokołu im Waylanda dla systemu IBus.
 Summary:	IBus library
 Summary(pl.UTF-8):	Biblioteka IBus
 Group:		Libraries
-Requires:	glib2 >= 1:2.46.0
+Requires:	glib2 >= 1:2.65.0
 Obsoletes:	ibus-xkb-libs < 1.5.1
 
 %description libs
@@ -187,7 +187,7 @@ Summary:	Development files for IBus
 Summary(pl.UTF-8):	Pliki programistyczne IBus
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	glib2-devel >= 1:2.46.0
+Requires:	glib2-devel >= 1:2.65.0
 Obsoletes:	ibus-xkb-devel < 1.5.1
 
 %description devel
@@ -416,6 +416,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_datadir}/dbus-1/services/org.freedesktop.portal.IBus.service
 %{_desktopdir}/org.freedesktop.IBus.Panel.Emojier.desktop
 %{_desktopdir}/org.freedesktop.IBus.Panel.Extension.Gtk3.desktop
+%{_desktopdir}/org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop
 %{_desktopdir}/org.freedesktop.IBus.Setup.desktop
 %{_iconsdir}/hicolor/*x*/apps/ibus-keyboard.png
 %{_iconsdir}/hicolor/scalable/apps/ibus*.svg
