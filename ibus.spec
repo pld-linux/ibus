@@ -36,6 +36,8 @@ BuildRequires:	gtk+3-devel >= 3.12.0
 BuildRequires:	gtk-doc >= 1.9
 %{?with_gtk4:BuildRequires:	gtk4-devel >= 4.0}
 BuildRequires:	iso-codes
+BuildRequires:	libdbusmenu-devel
+BuildRequires:	libdbusmenu-gtk3-devel
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool >= 2:2
 BuildRequires:	pkgconfig
