@@ -6,12 +6,13 @@
 %bcond_without	vala		# Vala API
 %bcond_without	wayland		# Wayland client
 %bcond_without	gtk4		# GTK 4 IM module
+%bcond_with	python2		# CPython 2.x module
 
 Summary:	Intelligent Input Bus for Linux OS
 Summary(pl.UTF-8):	IBus - inteligentna szyna wejściowa dla Linuksa
 Name:		ibus
 Version:	1.5.32
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 #Source0Download: https://github.com/ibus/ibus/releases/
@@ -41,10 +42,12 @@ BuildRequires:	libdbusmenu-gtk3-devel
 BuildRequires:	libnotify-devel >= 0.7
 BuildRequires:	libtool >= 2:2
 BuildRequires:	pkgconfig
+%if %{with python2}
 BuildRequires:	python >= 1:2.5
 BuildRequires:	python-dbus-devel >= 0.83.0
 BuildRequires:	python-pygobject3 >= 3.0.0
 BuildRequires:	python-pygobject3-common-devel >= 3.0.0
+%endif
 BuildRequires:	python3 >= 1:3.2
 BuildRequires:	python3-pygobject3 >= 3.0.0
 BuildRequires:	rpm-build >= 4.6
@@ -301,7 +304,12 @@ Bashowe dopełnianie parametrów dla poleceń ibus.
 	--enable-gtk3 \
 	%{?with_gtk4:--enable-gtk4} \
 	--enable-introspection \
+%if %{with python2}
 	--enable-python-library \
+%else
+	--disable-python2 \
+	--disable-python-library \
+%endif
 	%{?with_static_libs:--enable-static} \
 	--enable-surrounding-text \
 	--enable-vala%{!?with_vala:=no} \
@@ -446,16 +454,16 @@ rm -rf $RPM_BUILD_ROOT
 
 %files gtk2
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/gtk-2.0/2.*/immodules/im-ibus.so
+%{_libdir}/gtk-2.0/2.*/immodules/im-ibus.so
 
 %files gtk3
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/gtk-3.0/3.*/immodules/im-ibus.so
+%{_libdir}/gtk-3.0/3.*/immodules/im-ibus.so
 
 %if %{with gtk4}
 %files gtk4
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/gtk-4.0/4.*/immodules/libim-ibus.so
+%{_libdir}/gtk-4.0/4.*/immodules/libim-ibus.so
 %endif
 
 %files wayland
@@ -465,13 +473,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %files libs
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libibus-1.0.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libibus-1.0.so.5
+%{_libdir}/libibus-1.0.so.*.*.*
+%ghost %{_libdir}/libibus-1.0.so.5
 %{_libdir}/girepository-1.0/IBus-1.0.typelib
 
 %files devel
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libibus-1.0.so
+%{_libdir}/libibus-1.0.so
 %{_includedir}/ibus-1.0
 %{_datadir}/gir-1.0/IBus-1.0.gir
 %{_pkgconfigdir}/ibus-1.0.pc
@@ -488,6 +496,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(644,root,root,755)
 %{_gtkdocdir}/ibus
 
+%if %{with python2}
 %files -n python-ibus
 %defattr(644,root,root,755)
 %dir %{py_sitescriptdir}/ibus
@@ -495,11 +504,12 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{py_sitescriptdir}/ibus/interface
 %{py_sitescriptdir}/ibus/interface/*.py[co]
 %{py_sitedir}/gi/overrides/IBus.py[co]
+%endif
 
 %files -n python3-ibus
 %defattr(644,root,root,755)
 %{py3_sitedir}/gi/overrides/IBus.py
-%{py3_sitedir}/gi/overrides/__pycache__/IBus.cpython-*.py[co]
+%{py3_sitedir}/gi/overrides/__pycache__
 
 %if %{with vala}
 %files -n vala-ibus
